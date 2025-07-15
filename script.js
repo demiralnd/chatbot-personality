@@ -9,8 +9,8 @@ class GroqChatbot {
         this.init();
     }
 
-    init() {
-        this.loadSettings();
+    async init() {
+        await this.loadSettings();
         this.updateUI();
         this.setupEventListeners();
     }
@@ -43,14 +43,30 @@ class GroqChatbot {
         });
     }
 
-    loadSettings() {
-        const savedApiKey = localStorage.getItem('groq_api_key');
+    async loadSettings() {
+        // Try to load global API key first, fallback to local storage
+        try {
+            const response = await fetch('/api/get-api-key');
+            if (response.ok) {
+                const data = await response.json();
+                if (data.success && data.apiKey) {
+                    this.apiKey = data.apiKey;
+                }
+            }
+        } catch (error) {
+            console.log('Using local API key storage as fallback');
+        }
+
+        // Fallback to local storage if global API key is not available
+        if (!this.apiKey) {
+            const savedApiKey = localStorage.getItem('groq_api_key');
+            if (savedApiKey) {
+                this.apiKey = savedApiKey;
+            }
+        }
+
         const savedSystemPrompt = localStorage.getItem('system_prompt');
         const enableLogging = localStorage.getItem('enable_logging');
-
-        if (savedApiKey) {
-            this.apiKey = savedApiKey;
-        }
 
         if (savedSystemPrompt) {
             this.systemPrompt = savedSystemPrompt;

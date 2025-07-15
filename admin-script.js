@@ -55,7 +55,7 @@ class AdminPanel {
         document.getElementById('logTimestamps').checked = logTimestamps;
     }
 
-    saveAdminSettings() {
+    async saveAdminSettings() {
         const apiKey = document.getElementById('adminApiKey').value.trim();
         const systemPrompt1 = document.getElementById('adminSystemPrompt1').value.trim();
         const systemPrompt2 = document.getElementById('adminSystemPrompt2').value.trim();
@@ -77,13 +77,32 @@ class AdminPanel {
             return;
         }
 
-        localStorage.setItem('groq_api_key', apiKey);
-        localStorage.setItem('system_prompt_chatbot1', systemPrompt1);
-        localStorage.setItem('system_prompt_chatbot2', systemPrompt2);
-        localStorage.setItem('enable_logging', enableLogging.toString());
-        localStorage.setItem('log_timestamps', logTimestamps.toString());
+        try {
+            // Save global API key via API
+            const response = await fetch('/api/set-api-key', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer admin-token'
+                },
+                body: JSON.stringify({ apiKey })
+            });
 
-        this.showSuccess('Ayarlar başarıyla kaydedildi!');
+            if (!response.ok) {
+                throw new Error('Failed to save global API key');
+            }
+
+            // Save other settings locally
+            localStorage.setItem('system_prompt_chatbot1', systemPrompt1);
+            localStorage.setItem('system_prompt_chatbot2', systemPrompt2);
+            localStorage.setItem('enable_logging', enableLogging.toString());
+            localStorage.setItem('log_timestamps', logTimestamps.toString());
+
+            this.showSuccess('Ayarlar başarıyla kaydedildi! API anahtarı tüm kullanıcılar için geçerli olacak.');
+        } catch (error) {
+            console.error('Error saving settings:', error);
+            this.showError('Ayarlar kaydedilirken hata oluştu: ' + error.message);
+        }
     }
 
     loadChatLogs() {
