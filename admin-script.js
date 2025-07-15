@@ -6,10 +6,10 @@ class AdminPanel {
         this.init();
     }
 
-    init() {
+    async init() {
         this.checkLogin();
         this.loadChatLogs();
-        this.loadAdminSettings();
+        await this.loadAdminSettings();
         this.updateStats();
     }
 
@@ -21,9 +21,10 @@ class AdminPanel {
         }
     }
 
-    showAdminPanel() {
+    async showAdminPanel() {
         document.getElementById('loginContainer').style.display = 'none';
         document.getElementById('adminContainer').style.display = 'block';
+        await this.loadAdminSettings();
         this.renderChatLogs();
     }
 
@@ -32,8 +33,26 @@ class AdminPanel {
         document.getElementById('adminContainer').style.display = 'none';
     }
 
-    loadAdminSettings() {
-        const apiKey = localStorage.getItem('groq_api_key');
+    async loadAdminSettings() {
+        // Try to load global API key first
+        let apiKey = '';
+        try {
+            const response = await fetch('/api/get-api-key');
+            if (response.ok) {
+                const data = await response.json();
+                if (data.success && data.apiKey) {
+                    apiKey = data.apiKey;
+                }
+            }
+        } catch (error) {
+            console.log('Could not fetch global API key, checking localStorage');
+        }
+
+        // Fallback to localStorage if global API key is not available
+        if (!apiKey) {
+            apiKey = localStorage.getItem('groq_api_key') || '';
+        }
+
         const systemPrompt1 = localStorage.getItem('system_prompt_chatbot1');
         const systemPrompt2 = localStorage.getItem('system_prompt_chatbot2');
         const enableLogging = localStorage.getItem('enable_logging') !== 'false';

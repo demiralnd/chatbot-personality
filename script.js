@@ -11,7 +11,6 @@ class GroqChatbot {
 
     async init() {
         await this.loadSettings();
-        this.updateUI();
         this.setupEventListeners();
     }
 
@@ -75,6 +74,9 @@ class GroqChatbot {
         if (enableLogging !== null) {
             this.enableLogging = enableLogging === 'true';
         }
+
+        // Update UI after settings are loaded
+        this.updateUI();
     }
 
 
