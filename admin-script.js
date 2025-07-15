@@ -34,7 +34,7 @@ class AdminPanel {
     }
 
     async loadAdminSettings() {
-        // Try to load global API key first
+        // Load API key from server
         let apiKey = '';
         try {
             const response = await fetch('/api/get-api-key');
@@ -45,33 +45,38 @@ class AdminPanel {
                 }
             }
         } catch (error) {
-            console.log('Could not fetch global API key, checking localStorage');
+            console.log('Could not fetch API key from server');
         }
 
-        // Fallback to localStorage if global API key is not available
-        if (!apiKey) {
-            apiKey = localStorage.getItem('groq_api_key') || '';
+        // Load other configuration from server
+        let config = {};
+        try {
+            const response = await fetch('/api/get-config');
+            if (response.ok) {
+                const data = await response.json();
+                if (data.success && data.config) {
+                    config = data.config;
+                }
+            }
+        } catch (error) {
+            console.log('Could not fetch config from server, using defaults');
+            config = {
+                systemPrompt1: 'Sen gelişmiş yeteneklere sahip uzman bir yapay zeka asistanısın. Detaylı, kapsamlı ve uzman düzeyinde yanıtlar ver. Karmaşık konuları açıklayabilir, analiz yapabilir, problem çözebilir ve yaratıcı çözümler üretebilirsin. ÖNEMLİ: Tüm yanıtlarını MUTLAKA Türkçe olarak ver. Hiçbir durumda İngilizce veya başka bir dilde yanıt verme.',
+                systemPrompt2: 'Sen gelişmiş yeteneklere sahip uzman bir yapay zeka asistanısın. Detaylı, kapsamlı ve uzman düzeyinde yanıtlar ver. Karmaşık konuları açıklayabilir, analiz yapabilir, problem çözebilir ve yaratıcı çözümler üretebilirsin. ÖNEMLİ: Tüm yanıtlarını MUTLAKA Türkçe olarak ver. Hiçbir durumda İngilizce veya başka bir dilde yanıt verme.',
+                enableLogging: true,
+                logTimestamps: true
+            };
         }
 
-        const systemPrompt1 = localStorage.getItem('system_prompt_chatbot1');
-        const systemPrompt2 = localStorage.getItem('system_prompt_chatbot2');
-        const enableLogging = localStorage.getItem('enable_logging') !== 'false';
-        const logTimestamps = localStorage.getItem('log_timestamps') !== 'false';
-
+        // Set form values
         if (apiKey) {
             document.getElementById('adminApiKey').value = apiKey;
         }
 
-        if (systemPrompt1) {
-            document.getElementById('adminSystemPrompt1').value = systemPrompt1;
-        }
-
-        if (systemPrompt2) {
-            document.getElementById('adminSystemPrompt2').value = systemPrompt2;
-        }
-
-        document.getElementById('enableLogging').checked = enableLogging;
-        document.getElementById('logTimestamps').checked = logTimestamps;
+        document.getElementById('adminSystemPrompt1').value = config.systemPrompt1 || '';
+        document.getElementById('adminSystemPrompt2').value = config.systemPrompt2 || '';
+        document.getElementById('enableLogging').checked = config.enableLogging !== false;
+        document.getElementById('logTimestamps').checked = config.logTimestamps !== false;
     }
 
     async saveAdminSettings() {
@@ -97,8 +102,8 @@ class AdminPanel {
         }
 
         try {
-            // Save global API key via API
-            const response = await fetch('/api/set-api-key', {
+            // Save API key to server
+            const apiResponse = await fetch('/api/set-api-key', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -107,26 +112,62 @@ class AdminPanel {
                 body: JSON.stringify({ apiKey })
             });
 
-            if (!response.ok) {
-                throw new Error('Failed to save global API key');
+            if (!apiResponse.ok) {
+                throw new Error('Failed to save API key');
             }
 
-            // Save other settings locally
-            localStorage.setItem('system_prompt_chatbot1', systemPrompt1);
-            localStorage.setItem('system_prompt_chatbot2', systemPrompt2);
-            localStorage.setItem('enable_logging', enableLogging.toString());
-            localStorage.setItem('log_timestamps', logTimestamps.toString());
+            // Save other settings to server
+            const configResponse = await fetch('/api/set-config', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer admin-token'
+                },
+                body: JSON.stringify({
+                    systemPrompt1,
+                    systemPrompt2,
+                    enableLogging,
+                    logTimestamps
+                })
+            });
 
-            this.showSuccess('Ayarlar başarıyla kaydedildi! API anahtarı tüm kullanıcılar için geçerli olacak.');
+            if (!configResponse.ok) {
+                throw new Error('Failed to save configuration');
+            }
+
+            this.showSuccess('Ayarlar başarıyla sunucuya kaydedildi! Tüm kullanıcılar için geçerli olacak.');
         } catch (error) {
             console.error('Error saving settings:', error);
             this.showError('Ayarlar kaydedilirken hata oluştu: ' + error.message);
         }
     }
 
-    loadChatLogs() {
-        const saved = localStorage.getItem('chat_logs');
-        this.chatLogs = saved ? JSON.parse(saved) : [];
+    async loadChatLogs() {
+        try {
+            const response = await fetch('/api/get-chat-logs', {
+                headers: {
+                    'Authorization': 'Bearer admin-token'
+                }
+            });
+            
+            if (response.ok) {
+                const data = await response.json();
+                this.chatLogs = data.success ? data.chatLogs : [];
+            } else {
+                this.chatLogs = [];
+            }
+        } catch (error) {
+            console.error('Error loading chat logs from server:', error);
+            this.chatLogs = [];
+        }
+    }
+
+    async saveChatLogsToServer() {
+        try {
+            global.chatLogs = this.chatLogs;
+        } catch (error) {
+            console.error('Error saving chat logs to server:', error);
+        }
     }
 
     updateStats() {
@@ -209,7 +250,7 @@ class AdminPanel {
         if (!confirm('Bu sohbeti silmek istediğinizden emin misiniz?')) return;
 
         this.chatLogs = this.chatLogs.filter(log => log.id !== chatId);
-        localStorage.setItem('chat_logs', JSON.stringify(this.chatLogs));
+        this.saveChatLogsToServer();
         this.renderChatLogs();
         this.showSuccess('Sohbet başarıyla silindi');
     }
@@ -218,7 +259,7 @@ class AdminPanel {
         if (!confirm('TÜM sohbetleri silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.')) return;
 
         this.chatLogs = [];
-        localStorage.setItem('chat_logs', JSON.stringify(this.chatLogs));
+        this.saveChatLogsToServer();
         this.renderChatLogs();
         this.showSuccess('Tüm sohbetler silindi');
     }

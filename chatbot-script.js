@@ -4,7 +4,7 @@ class GroqChatbot {
         this.apiKey = '';
         this.systemPrompt = '';
         this.currentSession = [];
-        this.chatLogs = this.loadChatLogs();
+        this.chatLogs = [];
         this.enableLogging = true;
         this.sessionSaved = false;
         this.init();
@@ -12,6 +12,7 @@ class GroqChatbot {
 
     async init() {
         await this.loadSettings();
+        this.chatLogs = await this.loadChatLogs();
         this.setupEventListeners();
     }
 
@@ -44,7 +45,7 @@ class GroqChatbot {
     }
 
     async loadSettings() {
-        // Try to load global API key first, fallback to local storage
+        // Load API key from server
         try {
             const response = await fetch('/api/get-api-key');
             if (response.ok) {
@@ -54,29 +55,30 @@ class GroqChatbot {
                 }
             }
         } catch (error) {
-            console.log('Using local API key storage as fallback');
+            console.log('Could not fetch API key from server');
         }
 
-        // Fallback to local storage if global API key is not available
-        if (!this.apiKey) {
-            const savedApiKey = localStorage.getItem('groq_api_key');
-            if (savedApiKey) {
-                this.apiKey = savedApiKey;
+        // Load configuration from server
+        try {
+            const response = await fetch('/api/get-config');
+            if (response.ok) {
+                const data = await response.json();
+                if (data.success && data.config) {
+                    const config = data.config;
+                    this.systemPrompt = this.chatbotId === 1 ? config.systemPrompt1 : config.systemPrompt2;
+                    this.enableLogging = config.enableLogging !== false;
+                } else {
+                    this.systemPrompt = this.getDefaultSystemPrompt();
+                    this.enableLogging = true;
+                }
+            } else {
+                this.systemPrompt = this.getDefaultSystemPrompt();
+                this.enableLogging = true;
             }
-        }
-
-        const savedSystemPrompt = localStorage.getItem(`system_prompt_chatbot${this.chatbotId}`);
-        const enableLogging = localStorage.getItem('enable_logging');
-
-        if (savedSystemPrompt) {
-            this.systemPrompt = savedSystemPrompt;
-        } else {
-            // Default system prompts for each chatbot
+        } catch (error) {
+            console.log('Could not fetch config from server, using defaults');
             this.systemPrompt = this.getDefaultSystemPrompt();
-        }
-
-        if (enableLogging !== null) {
-            this.enableLogging = enableLogging === 'true';
+            this.enableLogging = true;
         }
 
         // Update UI after settings are loaded
@@ -265,13 +267,31 @@ class GroqChatbot {
         return 'Yeni Sohbet';
     }
 
-    loadChatLogs() {
-        const saved = localStorage.getItem('chat_logs');
-        return saved ? JSON.parse(saved) : [];
+    async loadChatLogs() {
+        try {
+            const response = await fetch('/api/get-chat-logs');
+            if (response.ok) {
+                const data = await response.json();
+                return data.success ? data.chatLogs : [];
+            }
+        } catch (error) {
+            console.error('Error loading chat logs from server:', error);
+        }
+        return [];
     }
 
-    saveChatLogs() {
-        localStorage.setItem('chat_logs', JSON.stringify(this.chatLogs));
+    async saveChatLogs() {
+        try {
+            await fetch('/api/save-chat-logs', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ chatLogs: this.chatLogs })
+            });
+        } catch (error) {
+            console.error('Error saving chat logs to server:', error);
+        }
     }
 
     async logSessionToServer(sessionData) {
