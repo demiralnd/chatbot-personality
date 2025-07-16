@@ -30,7 +30,7 @@ class GroqChatbot {
     async loadSettings() {
         // Check if server is configured
         try {
-            const response = await fetch('/api/get-api-key');
+            const response = await fetch('/api/config?action=api-key');
             if (response.ok) {
                 const data = await response.json();
                 if (data.success && data.apiKey) {
@@ -43,7 +43,7 @@ class GroqChatbot {
 
         // Load configuration from server
         try {
-            const response = await fetch('/api/get-config');
+            const response = await fetch('/api/config?action=config');
             if (response.ok) {
                 const data = await response.json();
                 if (data.success && data.config) {

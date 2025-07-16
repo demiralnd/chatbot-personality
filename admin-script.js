@@ -37,7 +37,7 @@ class AdminPanel {
         // Check if API key is configured on server
         let isApiKeyConfigured = false;
         try {
-            const response = await fetch('/api/get-api-key');
+            const response = await fetch('/api/config?action=api-key');
             if (response.ok) {
                 const data = await response.json();
                 if (data.success) {
@@ -51,7 +51,7 @@ class AdminPanel {
         // Load other configuration from server
         let config = {};
         try {
-            const response = await fetch('/api/get-config');
+            const response = await fetch('/api/config?action=config');
             if (response.ok) {
                 const data = await response.json();
                 if (data.success && data.config) {
@@ -99,7 +99,7 @@ class AdminPanel {
 
         try {
             // Save settings to server
-            const configResponse = await fetch('/api/set-config', {
+            const configResponse = await fetch('/api/admin?action=set-config', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -128,7 +128,7 @@ class AdminPanel {
 
     async loadChatLogs() {
         try {
-            const response = await fetch('/api/get-chat-logs', {
+            const response = await fetch('/api/admin?action=get-chat-logs', {
                 headers: {
                     'Authorization': 'Bearer admin-token'
                 }
@@ -264,7 +264,7 @@ class AdminPanel {
 
         try {
             // Clear logs on server
-            const response = await fetch('/api/clear-logs', {
+            const response = await fetch('/api/admin?action=clear-logs', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -412,7 +412,7 @@ class AdminPanel {
         }
 
         try {
-            const response = await fetch('/api/save-prompt', {
+            const response = await fetch('/api/admin?action=save-prompt', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -447,7 +447,7 @@ class AdminPanel {
 
     async loadSavedPrompts() {
         try {
-            const response = await fetch('/api/get-prompts', {
+            const response = await fetch('/api/admin?action=get-prompts', {
                 method: 'GET',
                 headers: {
                     'Authorization': 'Bearer admin-token'
@@ -492,7 +492,7 @@ class AdminPanel {
 
     async loadPrompt(promptName) {
         try {
-            const response = await fetch('/api/load-prompt', {
+            const response = await fetch('/api/admin?action=load-prompt', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -529,7 +529,7 @@ class AdminPanel {
         }
 
         try {
-            const response = await fetch('/api/delete-prompt', {
+            const response = await fetch('/api/admin?action=delete-prompt', {
                 method: 'DELETE',
                 headers: {
                     'Content-Type': 'application/json',
