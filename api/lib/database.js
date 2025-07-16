@@ -7,7 +7,7 @@ const CONFIG_DB = path.join(DB_DIR, 'config.json');
 const LOGS_DB = path.join(DB_DIR, 'logs.json');
 
 // Backup configuration to JavaScript files that can be committed
-const CONFIG_BACKUP = path.join(process.cwd(), 'config-backup.js');
+const CONFIG_BACKUP = path.join(process.cwd(), 'config-backup.mjs');
 
 // In-memory storage for Vercel environment
 let memoryConfig = null;
@@ -54,24 +54,41 @@ function initializeDatabase() {
 // Load configuration from backup file if it exists
 async function loadConfigFromBackup() {
     try {
+        console.log('🔄 Checking for backup file:', CONFIG_BACKUP);
+        
         if (fs.existsSync(CONFIG_BACKUP)) {
-            // Use dynamic import for ES modules with cache busting
-            const cacheBuster = '?t=' + Date.now();
-            const configModule = await import(CONFIG_BACKUP + cacheBuster);
-            return configModule.default || configModule;
+            console.log('✅ Backup file exists, attempting to load...');
+            
+            // Fallback: try reading as plain text and parsing (more reliable)
+            try {
+                const backupContent = fs.readFileSync(CONFIG_BACKUP, 'utf8');
+                console.log('📄 Backup file content preview:', backupContent.substring(0, 200) + '...');
+                
+                const match = backupContent.match(/export default\s+(\{[\s\S]*?\});/);
+                if (match) {
+                    const config = JSON.parse(match[1]);
+                    console.log('✅ Successfully loaded config from backup:', config);
+                    return config;
+                }
+            } catch (parseError) {
+                console.error('❌ Could not parse backup file:', parseError);
+            }
+            
+            // Try dynamic import as fallback
+            try {
+                const cacheBuster = '?t=' + Date.now();
+                const configModule = await import(CONFIG_BACKUP + cacheBuster);
+                const config = configModule.default || configModule;
+                console.log('✅ Successfully loaded config via import:', config);
+                return config;
+            } catch (importError) {
+                console.error('❌ Could not import backup file:', importError);
+            }
+        } else {
+            console.log('❌ Backup file does not exist');
         }
     } catch (error) {
-        console.error('Error loading config from backup:', error);
-        // Fallback: try reading as plain text and parsing
-        try {
-            const backupContent = fs.readFileSync(CONFIG_BACKUP, 'utf8');
-            const match = backupContent.match(/export default\s+(\{[\s\S]*?\});/);
-            if (match) {
-                return JSON.parse(match[1]);
-            }
-        } catch (parseError) {
-            console.error('Could not parse backup file:', parseError);
-        }
+        console.error('❌ Error loading config from backup:', error);
     }
     return null;
 }
@@ -79,15 +96,28 @@ async function loadConfigFromBackup() {
 // Save configuration to backup file
 function saveConfigToBackup(config) {
     try {
+        console.log('🔄 Attempting to save config to backup file:', CONFIG_BACKUP);
+        console.log('🔄 Config to save:', JSON.stringify(config, null, 2));
+        
         const configContent = `// Auto-generated configuration backup
 // This file is automatically updated when admin changes configuration
 export default ${JSON.stringify(config, null, 2)};
 `;
+        
         fs.writeFileSync(CONFIG_BACKUP, configContent);
-        console.log('Configuration backed up to config-backup.js');
+        console.log('✅ Configuration successfully backed up to config-backup.mjs');
+        
+        // Verify the file was written
+        if (fs.existsSync(CONFIG_BACKUP)) {
+            const fileSize = fs.statSync(CONFIG_BACKUP).size;
+            console.log(`✅ Backup file exists with size: ${fileSize} bytes`);
+        }
+        
         return true;
     } catch (error) {
-        console.error('Error saving config backup:', error);
+        console.error('❌ Error saving config backup:', error);
+        console.error('❌ Backup file path:', CONFIG_BACKUP);
+        console.error('❌ Current working directory:', process.cwd());
         return false;
     }
 }

@@ -90,21 +90,25 @@ function handleSetConfig(req, res) {
             logTimestamps: logTimestamps === true
         };
         
-        console.log('Attempting to save config:', config);
+        console.log('🔄 [ADMIN] Attempting to save config:', JSON.stringify(config, null, 2));
+        console.log('🔄 [ADMIN] systemPrompt1 length:', systemPrompt1.length);
+        console.log('🔄 [ADMIN] systemPrompt2 length:', systemPrompt2.length);
+        
         const saved = saveConfig(config);
         
         if (saved) {
-            console.log('Configuration saved successfully');
+            console.log('✅ [ADMIN] Configuration saved successfully');
             res.status(200).json({
                 success: true,
                 message: 'Configuration saved successfully'
             });
         } else {
-            console.error('saveConfig returned false');
+            console.error('❌ [ADMIN] saveConfig returned false');
             throw new Error('Failed to write configuration to storage');
         }
     } catch (error) {
-        console.error('Error saving config:', error);
+        console.error('❌ [ADMIN] Error saving config:', error);
+        console.error('❌ [ADMIN] Error stack:', error.stack);
         res.status(500).json({ 
             error: 'Failed to save configuration',
             details: error.message 
