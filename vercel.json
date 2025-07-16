@@ -12,9 +12,6 @@
     },
     "api/logs.js": {
       "maxDuration": 30
-    },
-    "api/log-chat.js": {
-      "maxDuration": 30
     }
   },
   "rewrites": [
