@@ -5,11 +5,9 @@ import path from 'path';
 const DB_DIR = path.join(process.cwd(), 'database');
 const CONFIG_DB = path.join(DB_DIR, 'config.json');
 const LOGS_DB = path.join(DB_DIR, 'logs.json');
-const PROMPTS_DB = path.join(DB_DIR, 'prompts.json');
 
 // Backup configuration to JavaScript files that can be committed
 const CONFIG_BACKUP = path.join(process.cwd(), 'config-backup.js');
-const PROMPTS_BACKUP = path.join(process.cwd(), 'prompts-backup.js');
 
 // Default configuration
 const DEFAULT_CONFIG = {
@@ -41,11 +39,6 @@ function initializeDatabase() {
             console.log('Logs database initialized');
         }
 
-        // Initialize prompts file
-        if (!fs.existsSync(PROMPTS_DB)) {
-            fs.writeFileSync(PROMPTS_DB, JSON.stringify({}, null, 2));
-            console.log('Prompts database initialized');
-        }
 
         return true;
     } catch (error) {
@@ -217,133 +210,6 @@ export function clearAllLogs() {
     }
 }
 
-// Load prompts from backup file if it exists
-function loadPromptsFromBackup() {
-    try {
-        if (fs.existsSync(PROMPTS_BACKUP)) {
-            // Delete require cache to get fresh prompts
-            delete require.cache[require.resolve(PROMPTS_BACKUP)];
-            const promptsModule = require(PROMPTS_BACKUP);
-            return promptsModule.default || promptsModule;
-        }
-    } catch (error) {
-        console.error('Error loading prompts from backup:', error);
-    }
-    return {};
-}
-
-// Save prompts to backup file
-function savePromptsToBackup(prompts) {
-    try {
-        const promptsContent = `// Auto-generated prompts backup
-// This file is automatically updated when admin saves prompts
-export default ${JSON.stringify(prompts, null, 2)};
-`;
-        fs.writeFileSync(PROMPTS_BACKUP, promptsContent);
-        console.log('Prompts backed up to prompts-backup.js');
-        return true;
-    } catch (error) {
-        console.error('Error saving prompts backup:', error);
-        return false;
-    }
-}
-
-// Prompt management functions
-export function getSavedPrompts() {
-    try {
-        initializeDatabase();
-        
-        // Priority order:
-        // 1. Backup file (persistent across deployments)
-        // 2. Database file (temporary)
-        // 3. Empty object (fallback)
-        
-        // Check backup file first
-        const backupPrompts = loadPromptsFromBackup();
-        if (backupPrompts && Object.keys(backupPrompts).length > 0) {
-            console.log(`Loaded ${Object.keys(backupPrompts).length} saved prompts from backup`);
-            return backupPrompts;
-        }
-        
-        // Check database file
-        if (fs.existsSync(PROMPTS_DB)) {
-            const data = fs.readFileSync(PROMPTS_DB, 'utf8');
-            const prompts = JSON.parse(data);
-            console.log(`Loaded ${Object.keys(prompts).length} saved prompts from database`);
-            return prompts;
-        }
-        
-        return {};
-    } catch (error) {
-        console.error('Error reading saved prompts from database:', error);
-        return {};
-    }
-}
-
-export function savePrompt(promptName, promptData) {
-    try {
-        initializeDatabase();
-        
-        const prompts = getSavedPrompts();
-        
-        const promptWithTimestamp = {
-            ...promptData,
-            name: promptName,
-            createdAt: prompts[promptName] ? prompts[promptName].createdAt : new Date().toISOString(),
-            updatedAt: new Date().toISOString()
-        };
-        
-        prompts[promptName] = promptWithTimestamp;
-        
-        // Save to multiple locations for maximum persistence
-        
-        // 1. Save to database file (temporary)
-        fs.writeFileSync(PROMPTS_DB, JSON.stringify(prompts, null, 2));
-        console.log(`Prompt "${promptName}" saved to database`);
-        
-        // 2. Save to backup file (persistent across deployments)
-        const backupSaved = savePromptsToBackup(prompts);
-        if (backupSaved) {
-            console.log(`Prompt "${promptName}" backed up for permanent persistence`);
-        }
-        
-        return true;
-    } catch (error) {
-        console.error('Error saving prompt to database:', error);
-        return false;
-    }
-}
-
-export function deletePrompt(promptName) {
-    try {
-        initializeDatabase();
-        
-        const prompts = getSavedPrompts();
-        
-        if (prompts[promptName]) {
-            delete prompts[promptName];
-            
-            // Delete from multiple locations for consistency
-            
-            // 1. Delete from database file (temporary)
-            fs.writeFileSync(PROMPTS_DB, JSON.stringify(prompts, null, 2));
-            console.log(`Prompt "${promptName}" deleted from database`);
-            
-            // 2. Update backup file (persistent across deployments)
-            const backupSaved = savePromptsToBackup(prompts);
-            if (backupSaved) {
-                console.log(`Prompt "${promptName}" deletion backed up for permanent persistence`);
-            }
-            
-            return true;
-        }
-        
-        return false;
-    } catch (error) {
-        console.error('Error deleting prompt from database:', error);
-        return false;
-    }
-}
 
 // Initialize database on import
 initializeDatabase();
