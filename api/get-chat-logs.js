@@ -1,3 +1,5 @@
+import { getChatLogs } from './lib/storage.js';
+
 export default function handler(req, res) {
     if (req.method !== 'GET') {
         return res.status(405).json({ error: 'Method not allowed' });
@@ -9,9 +11,8 @@ export default function handler(req, res) {
     }
 
     try {
-        // In production, retrieve from database
-        // For now, return stored chat logs from memory or file
-        const chatLogs = global.chatLogs || [];
+        // Get all chat logs from server storage
+        const chatLogs = getChatLogs();
         
         res.status(200).json({
             success: true,

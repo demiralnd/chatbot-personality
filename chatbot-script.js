@@ -3,16 +3,13 @@ class GroqChatbot {
         this.chatbotId = chatbotId;
         this.systemPrompt = '';
         this.currentSession = [];
-        this.chatLogs = [];
         this.enableLogging = true;
-        this.sessionSaved = false;
         this.isConfigured = false;
         this.init();
     }
 
     async init() {
         await this.loadSettings();
-        this.chatLogs = await this.loadChatLogs();
         this.setupEventListeners();
     }
 
@@ -28,20 +25,6 @@ class GroqChatbot {
         });
 
         sendButton.addEventListener('click', () => this.sendMessage());
-        
-        // Save session when page is about to unload
-        window.addEventListener('beforeunload', () => {
-            if (this.currentSession.length > 0 && !this.sessionSaved) {
-                this.saveChatSession();
-            }
-        });
-        
-        // Save session when user navigates away
-        window.addEventListener('pagehide', () => {
-            if (this.currentSession.length > 0 && !this.sessionSaved) {
-                this.saveChatSession();
-            }
-        });
     }
 
     async loadSettings() {
@@ -126,8 +109,6 @@ class GroqChatbot {
             const response = await this.callChatAPI(message);
             this.hideTypingIndicator();
             this.addMessage('assistant', response);
-            
-            // Session will be saved when user ends the conversation
         } catch (error) {
             this.hideTypingIndicator();
             this.addMessage('assistant', `Hata: ${error.message}`);
@@ -210,37 +191,10 @@ class GroqChatbot {
         }
     }
 
-    saveChatSession() {
-        if (this.currentSession.length === 0 || !this.enableLogging || this.sessionSaved) return;
-
-        const sessionData = {
-            id: Date.now().toString(),
-            chatbotId: this.chatbotId,
-            chatbotName: `Chatbot ${this.chatbotId}`,
-            title: this.generateSessionTitle(),
-            timestamp: new Date().toISOString(),
-            messages: [...this.currentSession]
-        };
-
-        this.chatLogs.unshift(sessionData);
-        this.saveChatLogs();
-        
-        // Send complete session to server
-        this.logSessionToServer(sessionData);
-        
-        // Mark session as saved
-        this.sessionSaved = true;
-    }
     
     newChat() {
-        // Save current session if it has messages
-        if (this.currentSession.length > 0) {
-            this.saveChatSession();
-        }
-        
-        // Clear current session and reset save flag
+        // Clear current session
         this.currentSession = [];
-        this.sessionSaved = false;
         
         // Clear chat messages from UI
         const messagesContainer = document.getElementById('chatMessages');
@@ -255,54 +209,6 @@ class GroqChatbot {
         }
     }
 
-    generateSessionTitle() {
-        const firstUserMessage = this.currentSession.find(msg => msg.role === 'user');
-        if (firstUserMessage) {
-            return firstUserMessage.content.substring(0, 30) + (firstUserMessage.content.length > 30 ? '...' : '');
-        }
-        return 'Yeni Sohbet';
-    }
-
-    async loadChatLogs() {
-        try {
-            const response = await fetch('/api/get-chat-logs');
-            if (response.ok) {
-                const data = await response.json();
-                return data.success ? data.chatLogs : [];
-            }
-        } catch (error) {
-            console.error('Error loading chat logs from server:', error);
-        }
-        return [];
-    }
-
-    async saveChatLogs() {
-        try {
-            await fetch('/api/save-chat-logs', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ chatLogs: this.chatLogs })
-            });
-        } catch (error) {
-            console.error('Error saving chat logs to server:', error);
-        }
-    }
-
-    async logSessionToServer(sessionData) {
-        try {
-            await fetch('/api/log-chat', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(sessionData)
-            });
-        } catch (error) {
-            console.warn('Failed to log session to server:', error);
-        }
-    }
 
     showNotification(message) {
         const notification = document.createElement('div');

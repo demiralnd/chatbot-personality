@@ -144,13 +144,6 @@ class AdminPanel {
         }
     }
 
-    async saveChatLogsToServer() {
-        try {
-            global.chatLogs = this.chatLogs;
-        } catch (error) {
-            console.error('Error saving chat logs to server:', error);
-        }
-    }
 
     updateStats() {
         const totalConversations = this.chatLogs.length;
@@ -166,6 +159,27 @@ class AdminPanel {
         document.getElementById('todayMessages').textContent = todayMessages;
     }
 
+    parseUserAgent(userAgent) {
+        if (!userAgent || userAgent === 'Unknown Device') return 'Bilinmeyen';
+        
+        // Try to detect browser
+        let browser = 'Bilinmeyen Browser';
+        if (userAgent.includes('Chrome')) browser = 'Chrome';
+        else if (userAgent.includes('Firefox')) browser = 'Firefox';
+        else if (userAgent.includes('Safari')) browser = 'Safari';
+        else if (userAgent.includes('Edge')) browser = 'Edge';
+        
+        // Try to detect OS
+        let os = 'Bilinmeyen OS';
+        if (userAgent.includes('Windows')) os = 'Windows';
+        else if (userAgent.includes('Mac OS')) os = 'macOS';
+        else if (userAgent.includes('Linux')) os = 'Linux';
+        else if (userAgent.includes('Android')) os = 'Android';
+        else if (userAgent.includes('iOS') || userAgent.includes('iPhone') || userAgent.includes('iPad')) os = 'iOS';
+        
+        return `${browser} - ${os}`;
+    }
+
     renderChatLogs() {
         const container = document.getElementById('adminLogsList');
         
@@ -175,22 +189,27 @@ class AdminPanel {
         }
 
         container.innerHTML = this.chatLogs.map(log => {
-            const messageCount = log.messages.length;
-            const lastMessage = log.messages[log.messages.length - 1];
+            const messageCount = log.messages ? log.messages.length : log.messageCount || 0;
+            const lastMessage = log.messages && log.messages.length > 0 ? log.messages[log.messages.length - 1] : null;
             const timestamp = new Date(log.timestamp).toLocaleString();
             const chatbotName = log.chatbotName || `Chatbot ${log.chatbotId || 1}`;
             const chatbotColor = log.chatbotId === 2 ? '#34c759' : '#007aff';
+            const ipAddress = log.ipAddress || 'Unknown IP';
+            const userAgent = log.userAgent || 'Unknown Device';
+            const deviceInfo = this.parseUserAgent(userAgent);
             
             return `
                 <div class="log-item">
                     <div class="log-info">
                         <div class="log-title">
                             <span class="chatbot-badge" style="background: ${chatbotColor}">${chatbotName}</span>
-                            ${log.title}
+                            ${log.title || 'Conversation'}
                         </div>
                         <div class="log-meta">
-                            ${messageCount} messages • ${timestamp}
-                            ${lastMessage ? `• Last: "${lastMessage.content.substring(0, 50)}..."` : ''}
+                            ${messageCount} mesaj • ${timestamp}
+                            <br>
+                            <small style="opacity: 0.7">IP: ${ipAddress} • Cihaz: ${deviceInfo}</small>
+                            ${lastMessage ? `<br>Son mesaj: "${lastMessage.content.substring(0, 50)}..."` : ''}
                         </div>
                     </div>
                     <div class="log-actions">
@@ -231,19 +250,38 @@ class AdminPanel {
     deleteChatLog(chatId) {
         if (!confirm('Bu sohbeti silmek istediğinizden emin misiniz?')) return;
 
+        // Note: Individual log deletion is not implemented server-side yet
+        // For now, we just remove from local display
         this.chatLogs = this.chatLogs.filter(log => log.id !== chatId);
-        this.saveChatLogsToServer();
         this.renderChatLogs();
-        this.showSuccess('Sohbet başarıyla silindi');
+        this.showSuccess('Sohbet listeden kaldırıldı (sunucuda hala mevcut)');
     }
 
-    clearAllAdminLogs() {
+    async clearAllAdminLogs() {
         if (!confirm('TÜM sohbetleri silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.')) return;
 
-        this.chatLogs = [];
-        this.saveChatLogsToServer();
-        this.renderChatLogs();
-        this.showSuccess('Tüm sohbetler silindi');
+        try {
+            // Clear logs on server
+            const response = await fetch('/api/clear-logs', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer admin-token'
+                }
+            });
+            
+            if (response.ok) {
+                this.chatLogs = [];
+                this.renderChatLogs();
+                this.updateStats();
+                this.showSuccess('Tüm sohbetler başarıyla silindi');
+            } else {
+                throw new Error('Failed to clear logs');
+            }
+        } catch (error) {
+            console.error('Error clearing logs:', error);
+            this.showError('Kayıtlar temizlenirken hata oluştu');
+        }
     }
 
     exportLogs() {

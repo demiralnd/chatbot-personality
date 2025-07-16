@@ -1,3 +1,5 @@
+import { getConfig, saveChatLog } from './lib/storage.js';
+
 export default async function handler(req, res) {
     // Set CORS headers
     res.setHeader('Access-Control-Allow-Origin', '*');
@@ -31,13 +33,9 @@ export default async function handler(req, res) {
             return;
         }
 
-        // Get system prompt based on chatbot ID
-        const systemPrompts = {
-            1: 'Sen gelişmiş yeteneklere sahip uzman bir yapay zeka asistanısın. Detaylı, kapsamlı ve uzman düzeyinde yanıtlar ver. Karmaşık konuları açıklayabilir, analiz yapabilir, problem çözebilir ve yaratıcı çözümler üretebilirsin. ÖNEMLİ: Tüm yanıtlarını MUTLAKA Türkçe olarak ver. Hiçbir durumda İngilizce veya başka bir dilde yanıt verme.',
-            2: 'Sen gelişmiş yeteneklere sahip uzman bir yapay zeka asistanısın. Detaylı, kapsamlı ve uzman düzeyinde yanıtlar ver. Karmaşık konuları açıklayabilir, analiz yapabilir, problem çözebilir ve yaratıcı çözümler üretebilirsin. ÖNEMLİ: Tüm yanıtlarını MUTLAKA Türkçe olarak ver. Hiçbir durumda İngilizce veya başka bir dilde yanıt verme.'
-        };
-
-        const systemPrompt = systemPrompts[chatbotId] || systemPrompts[1];
+        // Get configuration from server storage
+        const config = getConfig();
+        const systemPrompt = chatbotId === 2 ? config.systemPrompt2 : config.systemPrompt1;
 
         // Prepare messages with system prompt
         const fullMessages = [
@@ -72,6 +70,18 @@ export default async function handler(req, res) {
 
         const data = await response.json();
         const assistantMessage = data.choices[0].message.content;
+
+        // Log the conversation if logging is enabled
+        if (config.enableLogging) {
+            const logEntry = {
+                chatbotId,
+                chatbotName: `Chatbot ${chatbotId}`,
+                messages: [...messages, { role: 'assistant', content: assistantMessage }],
+                userAgent: req.headers['user-agent'],
+                ipAddress: req.headers['x-forwarded-for'] || req.connection?.remoteAddress || 'Unknown'
+            };
+            saveChatLog(logEntry);
+        }
 
         res.status(200).json({ 
             success: true, 

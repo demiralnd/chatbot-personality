@@ -1,3 +1,5 @@
+import { saveChatLog } from './lib/storage.js';
+
 // Vercel serverless function for logging chat data
 export default async function handler(req, res) {
     // Set CORS headers
@@ -25,7 +27,7 @@ export default async function handler(req, res) {
             return;
         }
 
-        // Log session data (in production, you might want to store this in a database)
+        // Log session data to server storage
         const sessionLogEntry = {
             id: id || Date.now().toString(),
             chatbotId,
@@ -34,32 +36,22 @@ export default async function handler(req, res) {
             timestamp,
             messageCount: messages.length,
             messages,
-            ip: req.headers['x-forwarded-for'] || req.connection.remoteAddress,
-            userAgent: req.headers['user-agent']
+            ipAddress: req.headers['x-forwarded-for'] || req.connection?.remoteAddress || 'Unknown',
+            userAgent: req.headers['user-agent'] || 'Unknown'
         };
 
-        // For development, just log to console
-        // In production, you would store this in a database like:
-        // - Vercel KV (Redis)
-        // - Supabase
-        // - Firebase
-        // - MongoDB Atlas
-        // - PostgreSQL
-        
-        console.log('Chat Session Log:', JSON.stringify(sessionLogEntry, null, 2));
+        // Save to server storage
+        const saved = saveChatLog(sessionLogEntry);
 
-        // Example of how you might store in Vercel KV (Redis):
-        // if (process.env.KV_REST_API_URL) {
-        //     const { kv } = await import('@vercel/kv');
-        //     await kv.lpush('chat_sessions', JSON.stringify(sessionLogEntry));
-        //     await kv.expire('chat_sessions', 86400 * 30); // 30 days
-        // }
-
-        res.status(200).json({ 
-            success: true, 
-            message: 'Chat session logged successfully',
-            sessionId: sessionLogEntry.id
-        });
+        if (saved) {
+            res.status(200).json({ 
+                success: true, 
+                message: 'Chat session logged successfully',
+                sessionId: sessionLogEntry.id
+            });
+        } else {
+            throw new Error('Failed to save chat log');
+        }
 
     } catch (error) {
         console.error('Logging error:', error);

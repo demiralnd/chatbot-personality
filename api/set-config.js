@@ -1,3 +1,5 @@
+import { saveConfig } from './lib/storage.js';
+
 export default function handler(req, res) {
     if (req.method !== 'POST') {
         return res.status(405).json({ error: 'Method not allowed' });
@@ -15,22 +17,23 @@ export default function handler(req, res) {
     }
 
     try {
-        // In production, store in database or secure file storage
-        // For now, we'll use environment variables (requires server restart)
-        // A better approach would be to use a database or JSON file
-        
-        // For immediate use without restart, store in memory (will reset on restart)
-        global.adminConfig = {
+        const config = {
             systemPrompt1,
             systemPrompt2,
             enableLogging: enableLogging === true,
             logTimestamps: logTimestamps === true
         };
-
-        res.status(200).json({
-            success: true,
-            message: 'Configuration saved successfully'
-        });
+        
+        const saved = saveConfig(config);
+        
+        if (saved) {
+            res.status(200).json({
+                success: true,
+                message: 'Configuration saved successfully'
+            });
+        } else {
+            throw new Error('Failed to write configuration');
+        }
     } catch (error) {
         console.error('Error saving config:', error);
         res.status(500).json({ error: 'Failed to save configuration' });
