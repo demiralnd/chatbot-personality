@@ -34,7 +34,7 @@ export default async function handler(req, res) {
         }
 
         // Get configuration from server storage
-        const config = getConfig();
+        const config = await getConfig();
         const systemPrompt = chatbotId === 2 ? config.systemPrompt2 : config.systemPrompt1;
 
         // Prepare messages with system prompt

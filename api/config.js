@@ -1,7 +1,7 @@
 // Consolidated config API - handles API key and public configuration
 import { getConfig } from './lib/database.js';
 
-export default function handler(req, res) {
+export default async function handler(req, res) {
     // Set CORS headers
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
@@ -25,7 +25,7 @@ export default function handler(req, res) {
                 return handleGetApiKey(req, res);
             
             case 'config':
-                return handleGetConfig(req, res);
+                return await handleGetConfig(req, res);
             
             default:
                 return res.status(400).json({ error: 'Invalid action' });
@@ -57,9 +57,9 @@ function handleGetApiKey(req, res) {
     }
 }
 
-function handleGetConfig(req, res) {
+async function handleGetConfig(req, res) {
     try {
-        const config = getConfig();
+        const config = await getConfig();
         
         res.status(200).json({
             success: true,

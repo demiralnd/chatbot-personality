@@ -29,7 +29,7 @@ export default async function handler(req, res) {
     try {
         switch (action) {
             case 'get-config':
-                return handleGetConfig(req, res);
+                return await handleGetConfig(req, res);
             
             case 'set-config':
                 return handleSetConfig(req, res);
@@ -51,13 +51,13 @@ export default async function handler(req, res) {
 }
 
 // Configuration handlers
-function handleGetConfig(req, res) {
+async function handleGetConfig(req, res) {
     if (req.method !== 'GET') {
         return res.status(405).json({ error: 'Method not allowed' });
     }
 
     try {
-        const config = getConfig();
+        const config = await getConfig();
         res.status(200).json({
             success: true,
             config

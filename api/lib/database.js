@@ -52,16 +52,26 @@ function initializeDatabase() {
 }
 
 // Load configuration from backup file if it exists
-function loadConfigFromBackup() {
+async function loadConfigFromBackup() {
     try {
         if (fs.existsSync(CONFIG_BACKUP)) {
-            // Delete require cache to get fresh config
-            delete require.cache[require.resolve(CONFIG_BACKUP)];
-            const configModule = require(CONFIG_BACKUP);
+            // Use dynamic import for ES modules with cache busting
+            const cacheBuster = '?t=' + Date.now();
+            const configModule = await import(CONFIG_BACKUP + cacheBuster);
             return configModule.default || configModule;
         }
     } catch (error) {
         console.error('Error loading config from backup:', error);
+        // Fallback: try reading as plain text and parsing
+        try {
+            const backupContent = fs.readFileSync(CONFIG_BACKUP, 'utf8');
+            const match = backupContent.match(/export default\s+(\{[\s\S]*?\});/);
+            if (match) {
+                return JSON.parse(match[1]);
+            }
+        } catch (parseError) {
+            console.error('Could not parse backup file:', parseError);
+        }
     }
     return null;
 }
@@ -83,19 +93,18 @@ export default ${JSON.stringify(config, null, 2)};
 }
 
 // Configuration functions
-export function getConfig() {
+export async function getConfig() {
     try {
-        initializeDatabase();
-        
-        // Priority order:
-        // 1. Environment variables (highest priority)
-        // 2. Memory storage (current session)
-        // 3. Backup file (persistent across deployments)
-        // 4. Database file (temporary)
+        // Priority order for TRUE SERVER-SIDE persistence:
+        // 1. Environment variables (deployment-level override)
+        // 2. Backup file (TRUE persistent storage across all instances)
+        // 3. Database file (fallback)
+        // 4. Memory (current session cache)
         // 5. Default config (fallback)
         
-        // Check environment variables first
+        // Check environment variables first (deployment-level override)
         if (process.env.SYSTEM_PROMPT_1 && process.env.SYSTEM_PROMPT_2) {
+            console.log('Using environment variable configuration');
             return {
                 systemPrompt1: process.env.SYSTEM_PROMPT_1,
                 systemPrompt2: process.env.SYSTEM_PROMPT_2,
@@ -104,35 +113,36 @@ export function getConfig() {
             };
         }
 
-        // Check memory storage (current session)
-        if (memoryConfig) {
-            console.log('Config loaded from memory:', memoryConfig);
-            return memoryConfig;
-        }
-
-        // Check backup file (persists across deployments)
-        const backupConfig = loadConfigFromBackup();
+        // Check backup file FIRST (this is the TRUE persistent storage)
+        const backupConfig = await loadConfigFromBackup();
         if (backupConfig) {
-            console.log('Config loaded from backup file:', backupConfig);
-            memoryConfig = backupConfig; // Cache in memory
+            console.log('✅ Config loaded from backup file (persistent across all instances):', backupConfig);
+            memoryConfig = backupConfig; // Cache in memory for performance
             return backupConfig;
         }
 
-        // Read from database file
-        if (fs.existsSync(CONFIG_DB)) {
-            try {
+        // Check database file as fallback
+        try {
+            initializeDatabase();
+            if (fs.existsSync(CONFIG_DB)) {
                 const data = fs.readFileSync(CONFIG_DB, 'utf8');
                 const config = JSON.parse(data);
-                console.log('Config loaded from database:', config);
+                console.log('Config loaded from database file:', config);
                 memoryConfig = config; // Cache in memory
                 return config;
-            } catch (error) {
-                console.warn('Could not read database file:', error.message);
             }
+        } catch (error) {
+            console.warn('Could not read database file:', error.message);
+        }
+
+        // Check memory storage (current session cache)
+        if (memoryConfig) {
+            console.log('Config loaded from memory cache:', memoryConfig);
+            return memoryConfig;
         }
 
         // Return defaults
-        console.log('Using default configuration');
+        console.log('Using default configuration (no saved config found)');
         return DEFAULT_CONFIG;
     } catch (error) {
         console.error('Error reading config:', error);
@@ -142,41 +152,37 @@ export function getConfig() {
 
 export function saveConfig(config) {
     try {
-        initializeDatabase();
-        
         const configWithTimestamp = {
             ...config,
             lastUpdated: new Date().toISOString()
         };
         
-        // Save to multiple locations for maximum persistence
-        let success = false;
-        
-        // 1. Save to memory (always works)
-        memoryConfig = configWithTimestamp;
-        console.log('Config saved to memory:', configWithTimestamp);
-        success = true;
-        
-        // 2. Save to database file (temporary)
+        // PRIORITY: Save to backup file first (this is what truly persists)
+        let backupSuccess = false;
         try {
+            backupSuccess = saveConfigToBackup(configWithTimestamp);
+            if (backupSuccess) {
+                console.log('✅ Config saved to backup file (permanent persistence)');
+            }
+        } catch (backupError) {
+            console.error('❌ CRITICAL: Could not save backup file:', backupError.message);
+        }
+        
+        // Save to memory for current session
+        memoryConfig = configWithTimestamp;
+        console.log('Config cached in memory for current session');
+        
+        // Try to save to database file as additional backup
+        try {
+            initializeDatabase();
             fs.writeFileSync(CONFIG_DB, JSON.stringify(configWithTimestamp, null, 2));
-            console.log('Config saved to database file');
+            console.log('Config also saved to database file');
         } catch (dbError) {
             console.warn('Could not save to database file:', dbError.message);
         }
         
-        // 3. Save to backup file (persistent across deployments)
-        try {
-            const backupSaved = saveConfigToBackup(configWithTimestamp);
-            if (backupSaved) {
-                console.log('Config backed up for permanent persistence');
-            }
-        } catch (backupError) {
-            console.warn('Could not save backup file:', backupError.message);
-        }
-        
-        // Return true if at least memory save worked
-        return success;
+        // Return true ONLY if backup file save worked (the only true persistence)
+        return backupSuccess;
     } catch (error) {
         console.error('Error saving config:', error);
         return false;
@@ -186,22 +192,36 @@ export function saveConfig(config) {
 // Chat logs functions
 export function getChatLogs() {
     try {
-        initializeDatabase();
+        // Priority: Database file, then memory, then empty array
+        try {
+            initializeDatabase();
+            if (fs.existsSync(LOGS_DB)) {
+                const data = fs.readFileSync(LOGS_DB, 'utf8');
+                const logs = JSON.parse(data);
+                console.log(`✅ Loaded ${logs.length} chat logs from database file`);
+                memoryLogs = logs; // Cache in memory
+                return logs;
+            }
+        } catch (dbError) {
+            console.warn('Could not read logs from database file:', dbError.message);
+        }
         
-        const data = fs.readFileSync(LOGS_DB, 'utf8');
-        const logs = JSON.parse(data);
-        console.log(`Loaded ${logs.length} chat logs from database`);
-        return logs;
+        // Fallback to memory
+        if (memoryLogs.length > 0) {
+            console.log(`Loaded ${memoryLogs.length} chat logs from memory`);
+            return memoryLogs;
+        }
+        
+        console.log('No chat logs found');
+        return [];
     } catch (error) {
-        console.error('Error reading chat logs from database:', error);
+        console.error('Error reading chat logs:', error);
         return [];
     }
 }
 
 export function saveChatLog(logEntry) {
     try {
-        initializeDatabase();
-        
         const logs = getChatLogs();
         
         const enrichedLog = {
@@ -220,24 +240,44 @@ export function saveChatLog(logEntry) {
             logs.splice(1000);
         }
         
-        fs.writeFileSync(LOGS_DB, JSON.stringify(logs, null, 2));
-        console.log('Chat log saved to database, total logs:', logs.length);
+        // Save to memory first (guaranteed to work)
+        memoryLogs = logs;
+        console.log('✅ Chat log saved to memory, total logs:', logs.length);
+        
+        // Try to save to database file
+        try {
+            initializeDatabase();
+            fs.writeFileSync(LOGS_DB, JSON.stringify(logs, null, 2));
+            console.log('Chat log also saved to database file');
+        } catch (dbError) {
+            console.warn('Could not save log to database file:', dbError.message);
+        }
+        
         return true;
     } catch (error) {
-        console.error('Error saving chat log to database:', error);
+        console.error('Error saving chat log:', error);
         return false;
     }
 }
 
 export function clearAllLogs() {
     try {
-        initializeDatabase();
+        // Clear memory first
+        memoryLogs = [];
+        console.log('✅ All chat logs cleared from memory');
         
-        fs.writeFileSync(LOGS_DB, JSON.stringify([], null, 2));
-        console.log('All chat logs cleared from database');
+        // Try to clear database file
+        try {
+            initializeDatabase();
+            fs.writeFileSync(LOGS_DB, JSON.stringify([], null, 2));
+            console.log('All chat logs also cleared from database file');
+        } catch (dbError) {
+            console.warn('Could not clear database file:', dbError.message);
+        }
+        
         return true;
     } catch (error) {
-        console.error('Error clearing logs from database:', error);
+        console.error('Error clearing logs:', error);
         return false;
     }
 }
