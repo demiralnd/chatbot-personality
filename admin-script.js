@@ -122,6 +122,11 @@ class AdminPanel {
             this.showSaveStatus('Yapılandırma başarıyla güncellendi - Tüm kullanıcılar için aktif', 'success');
         } catch (error) {
             console.error('Error saving settings:', error);
+            console.error('Error details:', {
+                name: error.name,
+                message: error.message,
+                stack: error.stack
+            });
             this.showError('Ayarlar kaydedilirken hata oluştu: ' + error.message);
             this.showSaveStatus('Yapılandırma kaydedilemedi - Hata oluştu', 'error');
         }
