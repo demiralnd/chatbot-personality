@@ -200,7 +200,7 @@ export async function saveConfig(config) {
             lastUpdated: new Date().toISOString()
         };
         
-        // PRIORITY: Save to backup file first (this is what truly persists)
+        // PRIORITY: Try to save to backup file first (works locally)
         let backupSuccess = false;
         try {
             backupSuccess = saveConfigToBackup(configWithTimestamp);
@@ -208,7 +208,7 @@ export async function saveConfig(config) {
                 console.log('✅ Config saved to backup file (permanent persistence)');
             }
         } catch (backupError) {
-            console.error('❌ CRITICAL: Could not save backup file:', backupError.message);
+            console.error('❌ Could not save backup file:', backupError.message);
         }
         
         // Save to memory for current session
@@ -224,8 +224,15 @@ export async function saveConfig(config) {
             console.warn('Could not save to database file (expected on Vercel):', dbError.message);
         }
         
-        // On Vercel, we rely on memory storage during function execution
-        // Return true if we successfully cached in memory
+        // For Vercel deployment, show instructions to set environment variables
+        if (!backupSuccess) {
+            console.log('💡 VERCEL DEPLOYMENT: For persistent configuration, set these environment variables:');
+            console.log(`SYSTEM_PROMPT_1="${config.systemPrompt1}"`);
+            console.log(`SYSTEM_PROMPT_2="${config.systemPrompt2}"`);
+            console.log(`ENABLE_LOGGING="${config.enableLogging}"`);
+            console.log(`LOG_TIMESTAMPS="${config.logTimestamps}"`);
+        }
+        
         return true;
     } catch (error) {
         console.error('Error saving config:', error);

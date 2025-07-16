@@ -40,6 +40,8 @@ export default async function handler(req, res) {
             case 'clear-logs':
                 return handleClearLogs(req, res);
             
+            case 'get-env-vars':
+                return await handleGetEnvVars(req, res);
             
             default:
                 return res.status(400).json({ error: 'Invalid action' });
@@ -153,6 +155,39 @@ function handleClearLogs(req, res) {
     } catch (error) {
         console.error('Error clearing logs:', error);
         res.status(500).json({ error: 'Failed to clear chat logs' });
+    }
+}
+
+// Environment variables helper
+async function handleGetEnvVars(req, res) {
+    if (req.method !== 'GET') {
+        return res.status(405).json({ error: 'Method not allowed' });
+    }
+
+    try {
+        const currentConfig = await getConfig();
+        const envVars = {
+            SYSTEM_PROMPT_1: currentConfig.systemPrompt1 || '',
+            SYSTEM_PROMPT_2: currentConfig.systemPrompt2 || '',
+            ENABLE_LOGGING: currentConfig.enableLogging || true,
+            LOG_TIMESTAMPS: currentConfig.logTimestamps || true
+        };
+
+        res.status(200).json({
+            success: true,
+            message: 'Environment variables for Vercel deployment',
+            envVars,
+            instructions: [
+                '1. Go to your Vercel dashboard',
+                '2. Select your project',
+                '3. Go to Settings > Environment Variables',
+                '4. Add each variable with its value',
+                '5. Redeploy your project'
+            ]
+        });
+    } catch (error) {
+        console.error('Error getting env vars:', error);
+        res.status(500).json({ error: 'Failed to get environment variables' });
     }
 }
 

@@ -120,6 +120,9 @@ class AdminPanel {
 
             this.showSuccess('Ayarlar başarıyla sunucuya kaydedildi! Tüm kullanıcılar için geçerli olacak.');
             this.showSaveStatus('Yapılandırma başarıyla güncellendi - Tüm kullanıcılar için aktif', 'success');
+            
+            // Check if we need to show environment variables for Vercel
+            setTimeout(() => this.checkVercelEnvVars(), 1000);
         } catch (error) {
             console.error('Error saving settings:', error);
             console.error('Error details:', {
@@ -398,6 +401,70 @@ class AdminPanel {
                 statusDiv.style.display = 'none';
             }, 5000);
         }
+    }
+
+    async checkVercelEnvVars() {
+        try {
+            const response = await fetch('/api/admin?action=get-env-vars', {
+                headers: {
+                    'Authorization': 'Bearer admin-token'
+                }
+            });
+            
+            if (response.ok) {
+                const data = await response.json();
+                if (data.success) {
+                    this.showVercelEnvVars(data.envVars, data.instructions);
+                }
+            }
+        } catch (error) {
+            console.log('Could not get environment variables info');
+        }
+    }
+
+    showVercelEnvVars(envVars, instructions) {
+        const modal = document.createElement('div');
+        modal.className = 'env-vars-modal';
+        modal.innerHTML = `
+            <div class="modal-content">
+                <h3>🚀 For Permanent Storage</h3>
+                <p><strong>Your changes are saved but will be lost on refresh.</strong><br>
+                To make them permanent on Vercel, set these environment variables:</p>
+                
+                <div class="env-vars-container">
+                    ${Object.entries(envVars).map(([key, value]) => 
+                        `<div class="env-var">
+                            <strong>${key}</strong>
+                            <input type="text" value="${value}" readonly onclick="this.select()">
+                        </div>`
+                    ).join('')}
+                </div>
+                
+                <div class="instructions">
+                    <h4>Instructions:</h4>
+                    <ol>
+                        ${instructions.map(instruction => `<li>${instruction}</li>`).join('')}
+                    </ol>
+                </div>
+                
+                <button onclick="this.parentElement.parentElement.remove()">Close</button>
+            </div>
+        `;
+        
+        modal.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.8);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        `;
+        
+        document.body.appendChild(modal);
     }
 
 }
