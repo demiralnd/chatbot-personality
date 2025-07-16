@@ -180,7 +180,7 @@ export async function getConfig() {
     }
 }
 
-export function saveConfig(config) {
+export async function saveConfig(config) {
     try {
         const configWithTimestamp = {
             ...config,

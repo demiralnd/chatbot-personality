@@ -32,7 +32,7 @@ export default async function handler(req, res) {
                 return await handleGetConfig(req, res);
             
             case 'set-config':
-                return handleSetConfig(req, res);
+                return await handleSetConfig(req, res);
             
             case 'get-chat-logs':
                 return handleGetChatLogs(req, res);
@@ -71,7 +71,7 @@ async function handleGetConfig(req, res) {
     }
 }
 
-function handleSetConfig(req, res) {
+async function handleSetConfig(req, res) {
     if (req.method !== 'POST') {
         return res.status(405).json({ error: 'Method not allowed' });
     }
@@ -94,7 +94,7 @@ function handleSetConfig(req, res) {
         console.log('🔄 [ADMIN] systemPrompt1 length:', systemPrompt1.length);
         console.log('🔄 [ADMIN] systemPrompt2 length:', systemPrompt2.length);
         
-        const saved = saveConfig(config);
+        const saved = await saveConfig(config);
         
         if (saved) {
             console.log('✅ [ADMIN] Configuration saved successfully');
