@@ -90,19 +90,25 @@ function handleSetConfig(req, res) {
             logTimestamps: logTimestamps === true
         };
         
+        console.log('Attempting to save config:', config);
         const saved = saveConfig(config);
         
         if (saved) {
+            console.log('Configuration saved successfully');
             res.status(200).json({
                 success: true,
                 message: 'Configuration saved successfully'
             });
         } else {
-            throw new Error('Failed to write configuration');
+            console.error('saveConfig returned false');
+            throw new Error('Failed to write configuration to storage');
         }
     } catch (error) {
         console.error('Error saving config:', error);
-        res.status(500).json({ error: 'Failed to save configuration' });
+        res.status(500).json({ 
+            error: 'Failed to save configuration',
+            details: error.message 
+        });
     }
 }
 
