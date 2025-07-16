@@ -35,10 +35,10 @@ export default async function handler(req, res) {
                 return await handleSetConfig(req, res);
             
             case 'get-chat-logs':
-                return handleGetChatLogs(req, res);
+                return await handleGetChatLogs(req, res);
             
             case 'clear-logs':
-                return handleClearLogs(req, res);
+                return await handleClearLogs(req, res);
             
             case 'get-env-vars':
                 return await handleGetEnvVars(req, res);
@@ -95,6 +95,8 @@ async function handleSetConfig(req, res) {
         console.log('🔄 [ADMIN] Attempting to save config:', JSON.stringify(config, null, 2));
         console.log('🔄 [ADMIN] systemPrompt1 length:', systemPrompt1.length);
         console.log('🔄 [ADMIN] systemPrompt2 length:', systemPrompt2.length);
+        console.log('🔄 [ADMIN] enableLogging:', enableLogging);
+        console.log('🔄 [ADMIN] logTimestamps:', logTimestamps);
         
         const saved = await saveConfig(config);
         
@@ -119,13 +121,13 @@ async function handleSetConfig(req, res) {
 }
 
 // Chat logs handlers
-function handleGetChatLogs(req, res) {
+async function handleGetChatLogs(req, res) {
     if (req.method !== 'GET') {
         return res.status(405).json({ error: 'Method not allowed' });
     }
 
     try {
-        const chatLogs = getChatLogs();
+        const chatLogs = await getChatLogs();
         res.status(200).json({
             success: true,
             chatLogs
@@ -136,13 +138,13 @@ function handleGetChatLogs(req, res) {
     }
 }
 
-function handleClearLogs(req, res) {
+async function handleClearLogs(req, res) {
     if (req.method !== 'POST') {
         return res.status(405).json({ error: 'Method not allowed' });
     }
 
     try {
-        const cleared = clearAllLogs();
+        const cleared = await clearAllLogs();
         
         if (cleared) {
             res.status(200).json({

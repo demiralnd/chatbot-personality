@@ -83,7 +83,7 @@ export default async function handler(req, res) {
                 ipAddress: req.headers['x-forwarded-for'] || req.connection?.remoteAddress || 'Unknown',
                 sessionId: req.headers['session-id'] || `session-${Date.now()}-${Math.random().toString(36).substring(2)}`
             };
-            saveChatLog(logEntry);
+            await saveChatLog(logEntry);
         }
 
         res.status(200).json({ 

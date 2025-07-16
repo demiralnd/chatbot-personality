@@ -1,15 +1,18 @@
-import fs from 'fs';
-import path from 'path';
+import { createClient } from '@supabase/supabase-js';
 
-// Database files - these will be committed to the project and persist across deployments
-const DB_DIR = path.join(process.cwd(), 'database');
-const CONFIG_DB = path.join(DB_DIR, 'config.json');
-const LOGS_DB = path.join(DB_DIR, 'logs.json');
+// Initialize Supabase client
+const supabaseUrl = process.env.SUPABASE_URL;
+const supabaseKey = process.env.SUPABASE_ANON_KEY;
+let supabase = null;
 
-// Backup configuration to JavaScript files that can be committed
-const CONFIG_BACKUP = path.join(process.cwd(), 'config-backup.mjs');
+if (supabaseUrl && supabaseKey) {
+    supabase = createClient(supabaseUrl, supabaseKey);
+    console.log('✅ Supabase client initialized');
+} else {
+    console.warn('⚠️ Supabase credentials not found in environment variables');
+}
 
-// In-memory storage for Vercel environment
+// In-memory storage for session-based caching
 let memoryConfig = null;
 let memoryLogs = [];
 
@@ -22,115 +25,105 @@ const DEFAULT_CONFIG = {
     lastUpdated: new Date().toISOString()
 };
 
-// Initialize database directory and files (Vercel-compatible)
-function initializeDatabase() {
+// Initialize in-memory storage
+function initializeStorage() {
+    console.log('Initializing in-memory storage for session');
+    if (!memoryConfig) {
+        memoryConfig = null;
+    }
+    if (!memoryLogs) {
+        memoryLogs = [];
+    }
+    return true;
+}
+
+// Load configuration from Supabase
+async function loadConfigFromDatabase() {
+    if (!supabase) {
+        console.warn('⚠️ Supabase client not initialized');
+        return null;
+    }
+
     try {
-        // On Vercel, file system is read-only, so we can't create directories or files
-        // We'll rely on memory storage and existing files
-        
-        // Check if database directory exists (read-only check)
-        if (fs.existsSync(DB_DIR)) {
-            console.log('Database directory exists');
-        } else {
-            console.log('Database directory does not exist (using memory storage)');
+        const { data, error } = await supabase
+            .from('chatbot_config')
+            .select('*')
+            .order('last_updated', { ascending: false })
+            .limit(1)
+            .single();
+
+        if (error) {
+            console.error('❌ Error loading config from Supabase:', error);
+            return null;
         }
 
-        // Check if config file exists (read-only check)
-        if (fs.existsSync(CONFIG_DB)) {
-            console.log('Config database file exists');
-        } else {
-            console.log('Config database file does not exist (using memory storage)');
+        if (data) {
+            console.log('✅ Config loaded from Supabase');
+            return {
+                systemPrompt1: data.system_prompt_1,
+                systemPrompt2: data.system_prompt_2,
+                enableLogging: data.enable_logging,
+                logTimestamps: data.log_timestamps,
+                lastUpdated: data.last_updated
+            };
         }
 
-        // Check if logs file exists (read-only check)
-        if (fs.existsSync(LOGS_DB)) {
-            console.log('Logs database file exists');
-        } else {
-            console.log('Logs database file does not exist (using memory storage)');
-        }
-
-        return true;
+        return null;
     } catch (error) {
-        console.error('Error checking database files:', error);
+        console.error('❌ Error loading config from database:', error);
+        return null;
+    }
+}
+
+// Save configuration to Supabase
+async function saveConfigToDatabase(config) {
+    if (!supabase) {
+        console.warn('⚠️ Supabase client not initialized');
         return false;
     }
-}
 
-// Load configuration from backup file if it exists
-async function loadConfigFromBackup() {
     try {
-        console.log('🔄 Checking for backup file:', CONFIG_BACKUP);
-        
-        if (fs.existsSync(CONFIG_BACKUP)) {
-            console.log('✅ Backup file exists, attempting to load...');
-            
-            // Fallback: try reading as plain text and parsing (more reliable)
-            try {
-                const backupContent = fs.readFileSync(CONFIG_BACKUP, 'utf8');
-                console.log('📄 Backup file content preview:', backupContent.substring(0, 200) + '...');
-                
-                const match = backupContent.match(/export default\s+(\{[\s\S]*?\});/);
-                if (match) {
-                    const config = JSON.parse(match[1]);
-                    console.log('✅ Successfully loaded config from backup:', config);
-                    return config;
-                }
-            } catch (parseError) {
-                console.error('❌ Could not parse backup file:', parseError);
-            }
-            
-            // Try dynamic import as fallback
-            try {
-                const cacheBuster = '?t=' + Date.now();
-                const configModule = await import(CONFIG_BACKUP + cacheBuster);
-                const config = configModule.default || configModule;
-                console.log('✅ Successfully loaded config via import:', config);
-                return config;
-            } catch (importError) {
-                console.error('❌ Could not import backup file:', importError);
-            }
+        // First, try to update existing config
+        const { data: existing } = await supabase
+            .from('chatbot_config')
+            .select('id')
+            .limit(1)
+            .single();
+
+        let result;
+        if (existing) {
+            // Update existing record
+            result = await supabase
+                .from('chatbot_config')
+                .update({
+                    system_prompt_1: config.systemPrompt1,
+                    system_prompt_2: config.systemPrompt2,
+                    enable_logging: config.enableLogging,
+                    log_timestamps: config.logTimestamps,
+                    last_updated: new Date().toISOString()
+                })
+                .eq('id', existing.id);
         } else {
-            console.log('❌ Backup file does not exist');
+            // Insert new record
+            result = await supabase
+                .from('chatbot_config')
+                .insert({
+                    system_prompt_1: config.systemPrompt1,
+                    system_prompt_2: config.systemPrompt2,
+                    enable_logging: config.enableLogging,
+                    log_timestamps: config.logTimestamps
+                });
         }
-    } catch (error) {
-        console.error('❌ Error loading config from backup:', error);
-    }
-    return null;
-}
 
-// Save configuration to backup file (Vercel-compatible)
-function saveConfigToBackup(config) {
-    try {
-        console.log('🔄 Attempting to save config to backup file (Vercel environment):', CONFIG_BACKUP);
-        console.log('🔄 Config to save:', JSON.stringify(config, null, 2));
-        
-        // In Vercel, we can't write to the file system
-        // But we can try to write to /tmp which is writable
-        const tmpBackup = '/tmp/config-backup.mjs';
-        
-        const configContent = `// Auto-generated configuration backup
-// This file is automatically updated when admin changes configuration
-export default ${JSON.stringify(config, null, 2)};
-`;
-        
-        try {
-            fs.writeFileSync(tmpBackup, configContent);
-            console.log('✅ Configuration backed up to tmp directory');
-        } catch (tmpError) {
-            console.warn('⚠️ Could not write to tmp directory:', tmpError.message);
+        if (result.error) {
+            console.error('❌ Error saving config to Supabase:', result.error);
+            return false;
         }
-        
-        // Try to write to original location (will fail on Vercel but work locally)
-        try {
-            fs.writeFileSync(CONFIG_BACKUP, configContent);
-            console.log('✅ Configuration successfully backed up to config-backup.mjs');
-        } catch (writeError) {
-            console.warn('⚠️ Could not write to project directory (expected on Vercel):', writeError.message);
-        }
-        
-        return true; // Always return true since we use memory storage as primary
+
+        console.log('✅ Config saved to Supabase successfully');
+        return true;
     } catch (error) {
-        console.error('❌ Error saving config backup:', error);
+        console.error('❌ Error saving config to database:', error);
         return false;
     }
 }
@@ -138,6 +131,13 @@ export default ${JSON.stringify(config, null, 2)};
 // Configuration functions
 export async function getConfig() {
     try {
+        console.log('🔍 DEBUG: Getting configuration...');
+        console.log('🔍 DEBUG: Environment variables check:');
+        console.log('  - SYSTEM_PROMPT_1:', process.env.SYSTEM_PROMPT_1 ? 'SET' : 'NOT SET');
+        console.log('  - SYSTEM_PROMPT_2:', process.env.SYSTEM_PROMPT_2 ? 'SET' : 'NOT SET');
+        console.log('  - ENABLE_LOGGING:', process.env.ENABLE_LOGGING);
+        console.log('  - LOG_TIMESTAMPS:', process.env.LOG_TIMESTAMPS);
+        
         // Priority order for TRUE SERVER-SIDE persistence:
         // 1. Environment variables (deployment-level override)
         // 2. Backup file (TRUE persistent storage across all instances)
@@ -158,40 +158,12 @@ export async function getConfig() {
             return envConfig;
         }
 
-        // Check backup file FIRST (this is the TRUE persistent storage)
-        const backupConfig = await loadConfigFromBackup();
-        if (backupConfig) {
-            console.log('✅ Config loaded from backup file (persistent across all instances):', backupConfig);
-            memoryConfig = backupConfig; // Cache in memory for performance
-            return backupConfig;
-        }
-
-        // Check database file as fallback
-        try {
-            initializeDatabase();
-            if (fs.existsSync(CONFIG_DB)) {
-                const data = fs.readFileSync(CONFIG_DB, 'utf8');
-                const config = JSON.parse(data);
-                console.log('✅ Config loaded from database file:', config);
-                memoryConfig = config; // Cache in memory
-                return config;
-            }
-        } catch (error) {
-            console.warn('Could not read database file:', error.message);
-        }
-
-        // Check for existing chatbot-config.json file (compatibility)
-        try {
-            const compatConfigPath = path.join(process.cwd(), 'chatbot-config.json');
-            if (fs.existsSync(compatConfigPath)) {
-                const data = fs.readFileSync(compatConfigPath, 'utf8');
-                const config = JSON.parse(data);
-                console.log('✅ Config loaded from chatbot-config.json:', config);
-                memoryConfig = config; // Cache in memory
-                return config;
-            }
-        } catch (error) {
-            console.warn('Could not read chatbot-config.json:', error.message);
+        // Check Supabase database (will be implemented)
+        const dbConfig = await loadConfigFromDatabase();
+        if (dbConfig) {
+            console.log('✅ Config loaded from Supabase database:', dbConfig);
+            memoryConfig = dbConfig; // Cache in memory for performance
+            return dbConfig;
         }
 
         // Check memory storage (current session cache)
@@ -201,7 +173,8 @@ export async function getConfig() {
         }
 
         // Return defaults
-        console.log('Using default configuration (no saved config found)');
+        console.log('⚠️ Using default configuration (no saved config found)');
+        console.log('Default config:', DEFAULT_CONFIG);
         return DEFAULT_CONFIG;
     } catch (error) {
         console.error('Error reading config:', error);
@@ -216,40 +189,18 @@ export async function saveConfig(config) {
             lastUpdated: new Date().toISOString()
         };
         
-        // PRIORITY: Try to save to backup file first (works locally)
-        let backupSuccess = false;
-        try {
-            backupSuccess = saveConfigToBackup(configWithTimestamp);
-            if (backupSuccess) {
-                console.log('✅ Config saved to backup file (permanent persistence)');
-            }
-        } catch (backupError) {
-            console.error('❌ Could not save backup file:', backupError.message);
+        // Save to Supabase database (will be implemented)
+        const dbSuccess = await saveConfigToDatabase(configWithTimestamp);
+        if (dbSuccess) {
+            console.log('✅ Config saved to Supabase database');
         }
         
         // Save to memory for current session
         memoryConfig = configWithTimestamp;
         console.log('Config cached in memory for current session');
         
-        // Try to save to database file as additional backup (will fail on Vercel)
-        try {
-            initializeDatabase();
-            fs.writeFileSync(CONFIG_DB, JSON.stringify(configWithTimestamp, null, 2));
-            console.log('Config also saved to database file');
-        } catch (dbError) {
-            console.warn('Could not save to database file (expected on Vercel):', dbError.message);
-        }
-        
-        // For Vercel deployment, show instructions to set environment variables
-        if (!backupSuccess) {
-            console.log('💡 VERCEL DEPLOYMENT: For persistent configuration, set these environment variables:');
-            console.log(`SYSTEM_PROMPT_1="${config.systemPrompt1}"`);
-            console.log(`SYSTEM_PROMPT_2="${config.systemPrompt2}"`);
-            console.log(`ENABLE_LOGGING="${config.enableLogging}"`);
-            console.log(`LOG_TIMESTAMPS="${config.logTimestamps}"`);
-        }
-        
-        return true;
+        // If no database, at least we have memory storage
+        return dbSuccess || true;
     } catch (error) {
         console.error('Error saving config:', error);
         return false;
@@ -257,34 +208,14 @@ export async function saveConfig(config) {
 }
 
 // Chat logs functions
-export function getChatLogs() {
+export async function getChatLogs() {
     try {
-        // Priority: Database file, then compatibility file, then memory, then empty array
-        try {
-            initializeDatabase();
-            if (fs.existsSync(LOGS_DB)) {
-                const data = fs.readFileSync(LOGS_DB, 'utf8');
-                const logs = JSON.parse(data);
-                console.log(`✅ Loaded ${logs.length} chat logs from database file`);
-                memoryLogs = logs; // Cache in memory
-                return logs;
-            }
-        } catch (dbError) {
-            console.warn('Could not read logs from database file:', dbError.message);
-        }
-
-        // Check for existing chat-logs.json file (compatibility)
-        try {
-            const compatLogsPath = path.join(process.cwd(), 'chat-logs.json');
-            if (fs.existsSync(compatLogsPath)) {
-                const data = fs.readFileSync(compatLogsPath, 'utf8');
-                const logs = JSON.parse(data);
-                console.log(`✅ Loaded ${logs.length} chat logs from chat-logs.json`);
-                memoryLogs = logs; // Cache in memory
-                return logs;
-            }
-        } catch (compatError) {
-            console.warn('Could not read chat-logs.json:', compatError.message);
+        // Load from Supabase database (will be implemented)
+        const dbLogs = await loadLogsFromDatabase();
+        if (dbLogs) {
+            console.log(`✅ Loaded ${dbLogs.length} chat logs from Supabase database`);
+            memoryLogs = dbLogs; // Cache in memory
+            return dbLogs;
         }
         
         // Fallback to memory
@@ -301,9 +232,86 @@ export function getChatLogs() {
     }
 }
 
-export function saveChatLog(logEntry) {
+// Load chat logs from Supabase
+async function loadLogsFromDatabase() {
+    if (!supabase) {
+        console.warn('⚠️ Supabase client not initialized');
+        return null;
+    }
+
     try {
-        const logs = getChatLogs();
+        const { data, error } = await supabase
+            .from('chat_logs')
+            .select('*')
+            .order('timestamp', { ascending: false })
+            .limit(1000);
+
+        if (error) {
+            console.error('❌ Error loading logs from Supabase:', error);
+            return null;
+        }
+
+        if (data) {
+            console.log(`✅ Loaded ${data.length} chat logs from Supabase`);
+            return data.map(log => ({
+                id: log.id,
+                chatbotId: log.chatbot_id,
+                chatbotName: log.chatbot_name,
+                title: log.title,
+                messages: log.messages,
+                userAgent: log.user_agent,
+                ipAddress: log.ip_address,
+                sessionId: log.session_id,
+                timestamp: log.timestamp
+            }));
+        }
+
+        return [];
+    } catch (error) {
+        console.error('❌ Error loading logs from database:', error);
+        return null;
+    }
+}
+
+// Save a single chat log to Supabase
+async function saveLogToDatabase(log) {
+    if (!supabase) {
+        console.warn('⚠️ Supabase client not initialized');
+        return false;
+    }
+
+    try {
+        const { error } = await supabase
+            .from('chat_logs')
+            .insert({
+                chatbot_id: log.chatbotId,
+                chatbot_name: log.chatbotName,
+                title: log.title,
+                messages: log.messages,
+                user_agent: log.userAgent,
+                ip_address: log.ipAddress,
+                session_id: log.sessionId,
+                timestamp: log.timestamp
+            });
+
+        if (error) {
+            console.error('❌ Error saving log to Supabase:', error);
+            return false;
+        }
+
+        console.log('✅ Chat log saved to Supabase successfully');
+        return true;
+    } catch (error) {
+        console.error('❌ Error saving log to database:', error);
+        return false;
+    }
+}
+
+export async function saveChatLog(logEntry) {
+    try {
+        console.log('🔍 DEBUG: Saving chat log entry:', logEntry);
+        const logs = await getChatLogs();
+        console.log('🔍 DEBUG: Current logs count:', logs.length);
         
         const enrichedLog = {
             ...logEntry,
@@ -312,6 +320,8 @@ export function saveChatLog(logEntry) {
             userAgent: logEntry.userAgent || 'Unknown',
             ipAddress: logEntry.ipAddress || 'Unknown'
         };
+        
+        console.log('🔍 DEBUG: Enriched log:', enrichedLog);
         
         // Add to beginning
         logs.unshift(enrichedLog);
@@ -325,22 +335,10 @@ export function saveChatLog(logEntry) {
         memoryLogs = logs;
         console.log('✅ Chat log saved to memory, total logs:', logs.length);
         
-        // Try to save to database file (will fail on Vercel)
-        try {
-            initializeDatabase();
-            fs.writeFileSync(LOGS_DB, JSON.stringify(logs, null, 2));
-            console.log('Chat log also saved to database file');
-        } catch (dbError) {
-            console.warn('Could not save log to database file (expected on Vercel):', dbError.message);
-        }
-
-        // Try to save to compatibility file (will fail on Vercel)
-        try {
-            const compatLogsPath = path.join(process.cwd(), 'chat-logs.json');
-            fs.writeFileSync(compatLogsPath, JSON.stringify(logs, null, 2));
-            console.log('Chat log also saved to chat-logs.json');
-        } catch (compatError) {
-            console.warn('Could not save log to chat-logs.json (expected on Vercel):', compatError.message);
+        // Save to Supabase database
+        const dbSuccess = await saveLogToDatabase(enrichedLog);
+        if (dbSuccess) {
+            console.log('✅ Chat log saved to Supabase database');
         }
         
         return true;
@@ -350,19 +348,16 @@ export function saveChatLog(logEntry) {
     }
 }
 
-export function clearAllLogs() {
+export async function clearAllLogs() {
     try {
         // Clear memory first
         memoryLogs = [];
         console.log('✅ All chat logs cleared from memory');
         
-        // Try to clear database file (will fail on Vercel)
-        try {
-            initializeDatabase();
-            fs.writeFileSync(LOGS_DB, JSON.stringify([], null, 2));
-            console.log('All chat logs also cleared from database file');
-        } catch (dbError) {
-            console.warn('Could not clear database file (expected on Vercel):', dbError.message);
+        // Clear Supabase database (will be implemented)
+        const dbSuccess = await clearLogsFromDatabase();
+        if (dbSuccess) {
+            console.log('✅ All chat logs cleared from Supabase database');
         }
         
         return true;
@@ -372,6 +367,31 @@ export function clearAllLogs() {
     }
 }
 
+// Clear all logs from Supabase
+async function clearLogsFromDatabase() {
+    if (!supabase) {
+        console.warn('⚠️ Supabase client not initialized');
+        return false;
+    }
 
-// Initialize database on import
-initializeDatabase();
+    try {
+        const { error } = await supabase
+            .from('chat_logs')
+            .delete()
+            .neq('id', '00000000-0000-0000-0000-000000000000'); // Delete all (Supabase requires a condition)
+
+        if (error) {
+            console.error('❌ Error clearing logs from Supabase:', error);
+            return false;
+        }
+
+        console.log('✅ All chat logs cleared from Supabase successfully');
+        return true;
+    } catch (error) {
+        console.error('❌ Error clearing logs from database:', error);
+        return false;
+    }
+}
+
+// Initialize storage on import
+initializeStorage();
