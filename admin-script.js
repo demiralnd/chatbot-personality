@@ -118,9 +118,11 @@ class AdminPanel {
             }
 
             this.showSuccess('Ayarlar başarıyla sunucuya kaydedildi! Tüm kullanıcılar için geçerli olacak.');
+            this.showSaveStatus('Yapılandırma başarıyla güncellendi - Tüm kullanıcılar için aktif', 'success');
         } catch (error) {
             console.error('Error saving settings:', error);
             this.showError('Ayarlar kaydedilirken hata oluştu: ' + error.message);
+            this.showSaveStatus('Yapılandırma kaydedilemedi - Hata oluştu', 'error');
         }
     }
 
@@ -375,6 +377,179 @@ class AdminPanel {
             alert(message);
         }
     }
+
+    showSaveStatus(message, type = 'info') {
+        const statusDiv = document.getElementById('saveStatus');
+        const statusText = document.getElementById('saveStatusText');
+        
+        if (statusDiv && statusText) {
+            statusText.textContent = message;
+            statusDiv.style.display = 'block';
+            statusDiv.className = `save-status ${type}`;
+            
+            // Auto-hide after 5 seconds
+            setTimeout(() => {
+                statusDiv.style.display = 'none';
+            }, 5000);
+        }
+    }
+
+    async savePrompt() {
+        const promptName = document.getElementById('promptName').value.trim();
+        const systemPrompt1 = document.getElementById('adminSystemPrompt1').value.trim();
+        const systemPrompt2 = document.getElementById('adminSystemPrompt2').value.trim();
+        const enableLogging = document.getElementById('enableLogging').checked;
+        const logTimestamps = document.getElementById('logTimestamps').checked;
+
+        if (!promptName) {
+            this.showError('Lütfen prompt için bir ad girin');
+            return;
+        }
+
+        if (!systemPrompt1 || !systemPrompt2) {
+            this.showError('Lütfen her iki chatbot için sistem istemi girin');
+            return;
+        }
+
+        try {
+            const response = await fetch('/api/save-prompt', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer admin-token'
+                },
+                body: JSON.stringify({
+                    promptName,
+                    systemPrompt1,
+                    systemPrompt2,
+                    enableLogging,
+                    logTimestamps
+                })
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                this.showSuccess(`Prompt "${promptName}" başarıyla kaydedildi ve uygulandı!`);
+                document.getElementById('promptName').value = '';
+                // Refresh the prompts list if it's visible
+                if (document.getElementById('savedPrompts').style.display !== 'none') {
+                    this.loadSavedPrompts();
+                }
+            } else {
+                const errorData = await response.json();
+                throw new Error(errorData.error || 'Prompt kaydedilemedi');
+            }
+        } catch (error) {
+            console.error('Error saving prompt:', error);
+            this.showError('Prompt kaydedilirken hata oluştu: ' + error.message);
+        }
+    }
+
+    async loadSavedPrompts() {
+        try {
+            const response = await fetch('/api/get-prompts', {
+                method: 'GET',
+                headers: {
+                    'Authorization': 'Bearer admin-token'
+                }
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                this.renderSavedPrompts(data.prompts);
+                document.getElementById('savedPrompts').style.display = 'block';
+            } else {
+                throw new Error('Kayıtlı promptlar yüklenemedi');
+            }
+        } catch (error) {
+            console.error('Error loading prompts:', error);
+            this.showError('Kayıtlı promptlar yüklenirken hata oluştu');
+        }
+    }
+
+    renderSavedPrompts(prompts) {
+        const container = document.getElementById('promptsList');
+        
+        if (prompts.length === 0) {
+            container.innerHTML = '<p style="color: #666; font-style: italic;">Henüz kayıtlı prompt bulunmuyor.</p>';
+            return;
+        }
+
+        container.innerHTML = prompts.map(prompt => `
+            <div class="prompt-item">
+                <div class="prompt-info">
+                    <h5>${prompt.name}</h5>
+                    <p><strong>Oluşturulma:</strong> ${new Date(prompt.createdAt).toLocaleString()}</p>
+                    <p><strong>Güncelleme:</strong> ${new Date(prompt.updatedAt).toLocaleString()}</p>
+                </div>
+                <div class="prompt-actions">
+                    <button class="load-prompt-btn" onclick="adminPanel.loadPrompt('${prompt.name}')">Yükle</button>
+                    <button class="delete-prompt-btn" onclick="adminPanel.deletePrompt('${prompt.name}')">Sil</button>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    async loadPrompt(promptName) {
+        try {
+            const response = await fetch('/api/load-prompt', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer admin-token'
+                },
+                body: JSON.stringify({ promptName })
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                const config = data.config;
+                
+                // Update the form fields
+                document.getElementById('adminSystemPrompt1').value = config.systemPrompt1;
+                document.getElementById('adminSystemPrompt2').value = config.systemPrompt2;
+                document.getElementById('enableLogging').checked = config.enableLogging;
+                document.getElementById('logTimestamps').checked = config.logTimestamps;
+                
+                this.showSuccess(`Prompt "${promptName}" başarıyla yüklendi ve uygulandı!`);
+                this.showSaveStatus(`Prompt "${promptName}" aktif - Tüm kullanıcılar için geçerli`, 'success');
+            } else {
+                const errorData = await response.json();
+                throw new Error(errorData.error || 'Prompt yüklenemedi');
+            }
+        } catch (error) {
+            console.error('Error loading prompt:', error);
+            this.showError('Prompt yüklenirken hata oluştu: ' + error.message);
+        }
+    }
+
+    async deletePrompt(promptName) {
+        if (!confirm(`"${promptName}" adlı prompt'u silmek istediğinizden emin misiniz?`)) {
+            return;
+        }
+
+        try {
+            const response = await fetch('/api/delete-prompt', {
+                method: 'DELETE',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer admin-token'
+                },
+                body: JSON.stringify({ promptName })
+            });
+
+            if (response.ok) {
+                this.showSuccess(`Prompt "${promptName}" başarıyla silindi`);
+                this.loadSavedPrompts(); // Refresh the list
+            } else {
+                const errorData = await response.json();
+                throw new Error(errorData.error || 'Prompt silinemedi');
+            }
+        } catch (error) {
+            console.error('Error deleting prompt:', error);
+            this.showError('Prompt silinirken hata oluştu: ' + error.message);
+        }
+    }
 }
 
 // Global functions for HTML handlers
@@ -429,6 +604,14 @@ function searchLogs() {
 
 function closeChatModal() {
     document.getElementById('chatModal').classList.remove('visible');
+}
+
+function savePrompt() {
+    adminPanel.savePrompt();
+}
+
+function loadSavedPrompts() {
+    adminPanel.loadSavedPrompts();
 }
 
 // Initialize admin panel

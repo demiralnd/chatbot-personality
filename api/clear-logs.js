@@ -1,4 +1,4 @@
-import { clearAllLogs } from './lib/storage.js';
+import { clearAllLogs } from './lib/vercel-storage.js';
 
 export default function handler(req, res) {
     if (req.method !== 'POST') {

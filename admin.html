@@ -75,6 +75,36 @@
                             <input type="text" id="adminApiKey" placeholder="API key durumu kontrol ediliyor..." disabled>
                             <small>API anahtarı Vercel ortam değişkenlerinde (GROQ_API_KEY) yapılandırılmalıdır</small>
                         </div>
+                        <div class="form-group">
+                            <label>
+                                <strong>Admin Kontrol Paneli</strong>
+                            </label>
+                            <p style="margin: 10px 0; color: #666;">
+                                Bu panelden yapılandırma değişiklikleriniz anında tüm kullanıcılar için geçerli olacaktır.
+                                Tüm kullanıcı oturumları otomatik olarak kaydedilir ve aşağıdaki "Sohbet Kayıtları" bölümünden görüntülenebilir.
+                            </p>
+                        </div>
+                    </div>
+
+                    <div class="settings-card">
+                        <h3>Prompt Yönetimi</h3>
+                        <div class="prompt-management">
+                            <div class="prompt-actions">
+                                <div class="form-group">
+                                    <label for="promptName">Prompt Adı</label>
+                                    <input type="text" id="promptName" placeholder="Örn: Araştırma Prompt 1">
+                                    <small>Kaydetmek istediğiniz prompt konfigürasyonu için bir ad girin</small>
+                                </div>
+                                <div class="prompt-buttons">
+                                    <button class="save-prompt-btn" onclick="savePrompt()">Mevcut Ayarları Kaydet</button>
+                                    <button class="load-prompts-btn" onclick="loadSavedPrompts()">Kayıtlı Promptları Yükle</button>
+                                </div>
+                            </div>
+                            <div class="saved-prompts" id="savedPrompts" style="display: none;">
+                                <h4>Kayıtlı Promptlar</h4>
+                                <div id="promptsList"></div>
+                            </div>
+                        </div>
                     </div>
 
                     <div class="settings-card">
@@ -111,7 +141,16 @@
                         </div>
                     </div>
 
-                    <button class="save-settings-btn" onclick="saveAdminSettings()">Yapılandırmayı Kaydet</button>
+                    <div class="save-section">
+                        <button class="save-settings-btn" onclick="saveAdminSettings()">Yapılandırmayı Kaydet</button>
+                        <div class="save-status" id="saveStatus" style="margin-top: 10px; display: none;">
+                            <span id="saveStatusText"></span>
+                        </div>
+                        <div class="config-info" style="margin-top: 15px; padding: 10px; background: #f5f5f5; border-radius: 5px; font-size: 14px;">
+                            <strong>Önemli:</strong> Yapılandırma değişiklikleriniz anında tüm kullanıcılar için geçerli olacaktır. 
+                            Tüm kullanıcı etkileşimleri otomatik olarak kaydedilir.
+                        </div>
+                    </div>
                 </div>
 
                 <!-- Chat Logs Section -->

@@ -1,4 +1,4 @@
-import { getConfig, saveChatLog } from './lib/storage.js';
+import { getConfig, saveChatLog } from './lib/vercel-storage.js';
 
 export default async function handler(req, res) {
     // Set CORS headers
@@ -73,12 +73,15 @@ export default async function handler(req, res) {
 
         // Log the conversation if logging is enabled
         if (config.enableLogging) {
+            const userMessage = messages[messages.length - 1]; // Get the latest user message
             const logEntry = {
                 chatbotId,
                 chatbotName: `Chatbot ${chatbotId}`,
+                title: userMessage.content.substring(0, 50) + (userMessage.content.length > 50 ? '...' : ''),
                 messages: [...messages, { role: 'assistant', content: assistantMessage }],
                 userAgent: req.headers['user-agent'],
-                ipAddress: req.headers['x-forwarded-for'] || req.connection?.remoteAddress || 'Unknown'
+                ipAddress: req.headers['x-forwarded-for'] || req.connection?.remoteAddress || 'Unknown',
+                sessionId: req.headers['session-id'] || `session-${Date.now()}-${Math.random().toString(36).substring(2)}`
             };
             saveChatLog(logEntry);
         }

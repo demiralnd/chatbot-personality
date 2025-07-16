@@ -1,4 +1,4 @@
-import { getChatLogs } from './lib/storage.js';
+import { getChatLogs } from './lib/vercel-storage.js';
 
 export default function handler(req, res) {
     if (req.method !== 'GET') {

@@ -1,4 +1,4 @@
-import { getConfig } from './lib/storage.js';
+import { getConfig } from './lib/vercel-storage.js';
 
 export default function handler(req, res) {
     if (req.method !== 'GET') {
