@@ -1,3 +1,5 @@
+import { deletePrompt } from './lib/database.js';
+
 export default function handler(req, res) {
     // Set CORS headers
     res.setHeader('Access-Control-Allow-Origin', '*');
@@ -26,30 +28,21 @@ export default function handler(req, res) {
     }
 
     try {
-        // Initialize storage if needed
-        if (!global.chatbotStorage) {
-            global.chatbotStorage = { config: null, logs: [], savedPrompts: {} };
+        // Delete the prompt from database
+        const deleted = deletePrompt(promptName);
+
+        if (deleted) {
+            console.log(`Prompt "${promptName}" deleted from database`);
+            
+            res.status(200).json({
+                success: true,
+                message: `Prompt "${promptName}" deleted successfully`
+            });
+        } else {
+            res.status(404).json({ error: `Prompt "${promptName}" not found` });
         }
-        if (!global.chatbotStorage.savedPrompts) {
-            global.chatbotStorage.savedPrompts = {};
-        }
-
-        // Check if prompt exists
-        if (!global.chatbotStorage.savedPrompts[promptName]) {
-            return res.status(404).json({ error: `Prompt "${promptName}" not found` });
-        }
-
-        // Delete the prompt
-        delete global.chatbotStorage.savedPrompts[promptName];
-
-        console.log(`Prompt "${promptName}" deleted`);
-
-        res.status(200).json({
-            success: true,
-            message: `Prompt "${promptName}" deleted successfully`
-        });
     } catch (error) {
         console.error('Error deleting prompt:', error);
-        res.status(500).json({ error: 'Failed to delete prompt' });
+        res.status(500).json({ error: 'Failed to delete prompt: ' + error.message });
     }
 }

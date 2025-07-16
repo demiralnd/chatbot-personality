@@ -1,3 +1,5 @@
+import { getSavedPrompts } from './lib/database.js';
+
 export default function handler(req, res) {
     // Set CORS headers
     res.setHeader('Access-Control-Allow-Origin', '*');
@@ -20,16 +22,8 @@ export default function handler(req, res) {
     }
 
     try {
-        // Initialize storage if needed
-        if (!global.chatbotStorage) {
-            global.chatbotStorage = { config: null, logs: [], savedPrompts: {} };
-        }
-        if (!global.chatbotStorage.savedPrompts) {
-            global.chatbotStorage.savedPrompts = {};
-        }
-
-        // Get all saved prompts
-        const savedPrompts = global.chatbotStorage.savedPrompts;
+        // Get all saved prompts from database
+        const savedPrompts = getSavedPrompts();
         
         // Convert to array for easier handling
         const promptList = Object.keys(savedPrompts).map(name => ({
@@ -40,6 +34,8 @@ export default function handler(req, res) {
         // Sort by updated date (newest first)
         promptList.sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
 
+        console.log(`Retrieved ${promptList.length} prompts from database`);
+
         res.status(200).json({
             success: true,
             prompts: promptList,
@@ -47,6 +43,6 @@ export default function handler(req, res) {
         });
     } catch (error) {
         console.error('Error getting prompts:', error);
-        res.status(500).json({ error: 'Failed to retrieve saved prompts' });
+        res.status(500).json({ error: 'Failed to retrieve saved prompts: ' + error.message });
     }
 }

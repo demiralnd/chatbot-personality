@@ -1,4 +1,4 @@
-import { getConfig, saveChatLog } from './lib/vercel-storage.js';
+import { getConfig, saveChatLog } from './lib/database.js';
 
 export default async function handler(req, res) {
     // Set CORS headers

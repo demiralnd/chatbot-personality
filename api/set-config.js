@@ -1,4 +1,4 @@
-import { saveConfig } from './lib/vercel-storage.js';
+import { saveConfig } from './lib/database.js';
 
 export default function handler(req, res) {
     if (req.method !== 'POST') {

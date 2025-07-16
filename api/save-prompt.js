@@ -1,4 +1,4 @@
-import { saveConfig, getConfig } from './lib/vercel-storage.js';
+import { saveConfig, getConfig, savePrompt } from './lib/database.js';
 
 export default function handler(req, res) {
     // Set CORS headers
@@ -28,41 +28,29 @@ export default function handler(req, res) {
     }
 
     try {
-        // Get current config to preserve other settings
-        const currentConfig = getConfig();
-        
-        // Initialize saved prompts if they don't exist
-        if (!global.chatbotStorage) {
-            global.chatbotStorage = { config: null, logs: [], savedPrompts: {} };
-        }
-        if (!global.chatbotStorage.savedPrompts) {
-            global.chatbotStorage.savedPrompts = {};
-        }
-
-        // Save the prompt configuration
+        // Save the prompt configuration to database
         const promptConfig = {
-            name: promptName,
-            systemPrompt1,
-            systemPrompt2,
-            enableLogging: enableLogging !== undefined ? enableLogging : true,
-            logTimestamps: logTimestamps !== undefined ? logTimestamps : true,
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString()
-        };
-
-        global.chatbotStorage.savedPrompts[promptName] = promptConfig;
-
-        // Also apply this configuration immediately
-        const newConfig = {
             systemPrompt1,
             systemPrompt2,
             enableLogging: enableLogging !== undefined ? enableLogging : true,
             logTimestamps: logTimestamps !== undefined ? logTimestamps : true
         };
 
-        saveConfig(newConfig);
+        // Save to prompts database
+        const promptSaved = savePrompt(promptName, promptConfig);
+        
+        if (!promptSaved) {
+            throw new Error('Failed to save prompt to database');
+        }
 
-        console.log(`Prompt "${promptName}" saved and applied:`, promptConfig);
+        // Also apply this configuration immediately
+        const configSaved = saveConfig(promptConfig);
+        
+        if (!configSaved) {
+            throw new Error('Failed to apply configuration');
+        }
+
+        console.log(`Prompt "${promptName}" saved to database and applied`);
 
         res.status(200).json({
             success: true,
@@ -72,6 +60,6 @@ export default function handler(req, res) {
         });
     } catch (error) {
         console.error('Error saving prompt:', error);
-        res.status(500).json({ error: 'Failed to save prompt configuration' });
+        res.status(500).json({ error: 'Failed to save prompt configuration: ' + error.message });
     }
 }

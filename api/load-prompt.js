@@ -1,4 +1,4 @@
-import { saveConfig } from './lib/vercel-storage.js';
+import { saveConfig, getSavedPrompts } from './lib/database.js';
 
 export default function handler(req, res) {
     // Set CORS headers
@@ -28,16 +28,11 @@ export default function handler(req, res) {
     }
 
     try {
-        // Initialize storage if needed
-        if (!global.chatbotStorage) {
-            global.chatbotStorage = { config: null, logs: [], savedPrompts: {} };
-        }
-        if (!global.chatbotStorage.savedPrompts) {
-            global.chatbotStorage.savedPrompts = {};
-        }
+        // Get saved prompts from database
+        const savedPrompts = getSavedPrompts();
 
         // Check if prompt exists
-        const promptConfig = global.chatbotStorage.savedPrompts[promptName];
+        const promptConfig = savedPrompts[promptName];
         if (!promptConfig) {
             return res.status(404).json({ error: `Prompt "${promptName}" not found` });
         }
@@ -54,7 +49,7 @@ export default function handler(req, res) {
         const saved = saveConfig(configToApply);
 
         if (saved) {
-            console.log(`Prompt "${promptName}" loaded and applied:`, configToApply);
+            console.log(`Prompt "${promptName}" loaded from database and applied:`, configToApply);
             
             res.status(200).json({
                 success: true,
@@ -67,6 +62,6 @@ export default function handler(req, res) {
         }
     } catch (error) {
         console.error('Error loading prompt:', error);
-        res.status(500).json({ error: 'Failed to load prompt configuration' });
+        res.status(500).json({ error: 'Failed to load prompt configuration: ' + error.message });
     }
 }

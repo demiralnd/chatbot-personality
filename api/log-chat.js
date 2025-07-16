@@ -1,4 +1,4 @@
-import { saveChatLog } from './lib/vercel-storage.js';
+import { saveChatLog } from './lib/database.js';
 
 // Vercel serverless function for logging chat data
 export default async function handler(req, res) {
