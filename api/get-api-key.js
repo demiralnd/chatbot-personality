@@ -16,8 +16,7 @@ export default function handler(req, res) {
     }
 
     try {
-        // For now, return the API key from environment variable
-        // In production, this should be stored in a secure database
+        // Check if API key is configured without exposing it
         const globalApiKey = process.env.GROQ_API_KEY || '';
         
         if (!globalApiKey) {
@@ -25,12 +24,13 @@ export default function handler(req, res) {
             return;
         }
 
+        // Return success without exposing the actual API key
         res.status(200).json({ 
             success: true, 
-            apiKey: globalApiKey 
+            apiKey: 'configured' // Don't expose the actual key
         });
     } catch (error) {
-        console.error('Error retrieving global API key:', error);
-        res.status(500).json({ error: 'Failed to retrieve global API key' });
+        console.error('Error checking API key configuration:', error);
+        res.status(500).json({ error: 'Failed to check API key configuration' });
     }
 }

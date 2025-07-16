@@ -34,18 +34,18 @@ class AdminPanel {
     }
 
     async loadAdminSettings() {
-        // Load API key from server
-        let apiKey = '';
+        // Check if API key is configured on server
+        let isApiKeyConfigured = false;
         try {
             const response = await fetch('/api/get-api-key');
             if (response.ok) {
                 const data = await response.json();
-                if (data.success && data.apiKey) {
-                    apiKey = data.apiKey;
+                if (data.success) {
+                    isApiKeyConfigured = true;
                 }
             }
         } catch (error) {
-            console.log('Could not fetch API key from server');
+            console.log('Could not check API key configuration');
         }
 
         // Load other configuration from server
@@ -68,9 +68,11 @@ class AdminPanel {
             };
         }
 
-        // Set form values
-        if (apiKey) {
-            document.getElementById('adminApiKey').value = apiKey;
+        // Update API key status
+        const apiKeyInput = document.getElementById('adminApiKey');
+        if (apiKeyInput) {
+            apiKeyInput.value = isApiKeyConfigured ? 'API key is configured on server' : 'API key not configured';
+            apiKeyInput.disabled = true;
         }
 
         document.getElementById('adminSystemPrompt1').value = config.systemPrompt1 || '';
@@ -80,16 +82,10 @@ class AdminPanel {
     }
 
     async saveAdminSettings() {
-        const apiKey = document.getElementById('adminApiKey').value.trim();
         const systemPrompt1 = document.getElementById('adminSystemPrompt1').value.trim();
         const systemPrompt2 = document.getElementById('adminSystemPrompt2').value.trim();
         const enableLogging = document.getElementById('enableLogging').checked;
         const logTimestamps = document.getElementById('logTimestamps').checked;
-
-        if (!apiKey) {
-            this.showError('Lütfen geçerli bir Groq API anahtarı girin');
-            return;
-        }
 
         if (!systemPrompt1) {
             this.showError('Lütfen Chatbot 1 için bir sistem istemi girin');
@@ -102,21 +98,7 @@ class AdminPanel {
         }
 
         try {
-            // Save API key to server
-            const apiResponse = await fetch('/api/set-api-key', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': 'Bearer admin-token'
-                },
-                body: JSON.stringify({ apiKey })
-            });
-
-            if (!apiResponse.ok) {
-                throw new Error('Failed to save API key');
-            }
-
-            // Save other settings to server
+            // Save settings to server
             const configResponse = await fetch('/api/set-config', {
                 method: 'POST',
                 headers: {

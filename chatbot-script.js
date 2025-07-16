@@ -1,12 +1,12 @@
 class GroqChatbot {
     constructor(chatbotId) {
         this.chatbotId = chatbotId;
-        this.apiKey = '';
         this.systemPrompt = '';
         this.currentSession = [];
         this.chatLogs = [];
         this.enableLogging = true;
         this.sessionSaved = false;
+        this.isConfigured = false;
         this.init();
     }
 
@@ -45,17 +45,17 @@ class GroqChatbot {
     }
 
     async loadSettings() {
-        // Load API key from server
+        // Check if server is configured
         try {
             const response = await fetch('/api/get-api-key');
             if (response.ok) {
                 const data = await response.json();
                 if (data.success && data.apiKey) {
-                    this.apiKey = data.apiKey;
+                    this.isConfigured = true;
                 }
             }
         } catch (error) {
-            console.log('Could not fetch API key from server');
+            console.log('Could not verify server configuration');
         }
 
         // Load configuration from server
@@ -98,7 +98,7 @@ class GroqChatbot {
         const sendButton = document.getElementById('sendButton');
         const welcomeMessage = document.querySelector('.welcome-message');
 
-        if (this.apiKey) {
+        if (this.isConfigured) {
             messageInput.disabled = false;
             sendButton.disabled = false;
             messageInput.placeholder = 'Mesajınızı yazın...';
@@ -116,14 +116,14 @@ class GroqChatbot {
         const messageInput = document.getElementById('messageInput');
         const message = messageInput.value.trim();
 
-        if (!message || !this.apiKey) return;
+        if (!message || !this.isConfigured) return;
 
         messageInput.value = '';
         this.addMessage('user', message);
         this.showTypingIndicator();
 
         try {
-            const response = await this.callGroqAPI(message);
+            const response = await this.callChatAPI(message);
             this.hideTypingIndicator();
             this.addMessage('assistant', response);
             
@@ -131,39 +131,35 @@ class GroqChatbot {
         } catch (error) {
             this.hideTypingIndicator();
             this.addMessage('assistant', `Hata: ${error.message}`);
-            console.error('Groq API Hatası:', error);
+            console.error('Chat API Hatası:', error);
         }
     }
 
-    async callGroqAPI(userMessage) {
+    async callChatAPI(userMessage) {
+        // Only send conversation history without system prompt (handled server-side)
         const messages = [
-            { role: 'system', content: this.systemPrompt },
             ...this.currentSession,
             { role: 'user', content: userMessage }
         ];
 
-        const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+        const response = await fetch('/api/chat', {
             method: 'POST',
             headers: {
-                'Authorization': `Bearer ${this.apiKey}`,
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify({
-                model: 'meta-llama/llama-4-maverick-17b-128e-instruct',
                 messages: messages,
-                temperature: 0.7,
-                max_tokens: 1024,
-                stream: false
+                chatbotId: this.chatbotId
             })
         });
 
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.error?.message || `HTTP ${response.status}: ${response.statusText}`);
+            throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`);
         }
 
         const data = await response.json();
-        return data.choices[0].message.content;
+        return data.message;
     }
 
     addMessage(role, content) {
