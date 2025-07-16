@@ -1,5 +1,22 @@
 {
   "version": 2,
+  "functions": {
+    "api/admin.js": {
+      "maxDuration": 30
+    },
+    "api/chat.js": {
+      "maxDuration": 30
+    },
+    "api/config.js": {
+      "maxDuration": 30
+    },
+    "api/logs.js": {
+      "maxDuration": 30
+    },
+    "api/log-chat.js": {
+      "maxDuration": 30
+    }
+  },
   "rewrites": [
     {
       "source": "/",
