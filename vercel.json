@@ -1,9 +1,15 @@
 {
   "functions": {
-    "api/log-chat.js": {
+    "api/admin.js": {
       "maxDuration": 10
     },
-    "api/get-logs.js": {
+    "api/chat.js": {
+      "maxDuration": 10
+    },
+    "api/config.js": {
+      "maxDuration": 10
+    },
+    "api/logs.js": {
       "maxDuration": 10
     }
   },
