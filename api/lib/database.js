@@ -147,13 +147,15 @@ export async function getConfig() {
         
         // Check environment variables first (deployment-level override)
         if (process.env.SYSTEM_PROMPT_1 && process.env.SYSTEM_PROMPT_2) {
-            console.log('Using environment variable configuration');
-            return {
+            console.log('✅ Using environment variable configuration');
+            const envConfig = {
                 systemPrompt1: process.env.SYSTEM_PROMPT_1,
                 systemPrompt2: process.env.SYSTEM_PROMPT_2,
                 enableLogging: process.env.ENABLE_LOGGING !== 'false',
                 logTimestamps: process.env.LOG_TIMESTAMPS !== 'false'
             };
+            console.log('Environment config:', envConfig);
+            return envConfig;
         }
 
         // Check backup file FIRST (this is the TRUE persistent storage)
@@ -170,7 +172,7 @@ export async function getConfig() {
             if (fs.existsSync(CONFIG_DB)) {
                 const data = fs.readFileSync(CONFIG_DB, 'utf8');
                 const config = JSON.parse(data);
-                console.log('Config loaded from database file:', config);
+                console.log('✅ Config loaded from database file:', config);
                 memoryConfig = config; // Cache in memory
                 return config;
             }
@@ -178,9 +180,23 @@ export async function getConfig() {
             console.warn('Could not read database file:', error.message);
         }
 
+        // Check for existing chatbot-config.json file (compatibility)
+        try {
+            const compatConfigPath = path.join(process.cwd(), 'chatbot-config.json');
+            if (fs.existsSync(compatConfigPath)) {
+                const data = fs.readFileSync(compatConfigPath, 'utf8');
+                const config = JSON.parse(data);
+                console.log('✅ Config loaded from chatbot-config.json:', config);
+                memoryConfig = config; // Cache in memory
+                return config;
+            }
+        } catch (error) {
+            console.warn('Could not read chatbot-config.json:', error.message);
+        }
+
         // Check memory storage (current session cache)
         if (memoryConfig) {
-            console.log('Config loaded from memory cache:', memoryConfig);
+            console.log('✅ Config loaded from memory cache:', memoryConfig);
             return memoryConfig;
         }
 
@@ -243,7 +259,7 @@ export async function saveConfig(config) {
 // Chat logs functions
 export function getChatLogs() {
     try {
-        // Priority: Database file, then memory, then empty array
+        // Priority: Database file, then compatibility file, then memory, then empty array
         try {
             initializeDatabase();
             if (fs.existsSync(LOGS_DB)) {
@@ -255,6 +271,20 @@ export function getChatLogs() {
             }
         } catch (dbError) {
             console.warn('Could not read logs from database file:', dbError.message);
+        }
+
+        // Check for existing chat-logs.json file (compatibility)
+        try {
+            const compatLogsPath = path.join(process.cwd(), 'chat-logs.json');
+            if (fs.existsSync(compatLogsPath)) {
+                const data = fs.readFileSync(compatLogsPath, 'utf8');
+                const logs = JSON.parse(data);
+                console.log(`✅ Loaded ${logs.length} chat logs from chat-logs.json`);
+                memoryLogs = logs; // Cache in memory
+                return logs;
+            }
+        } catch (compatError) {
+            console.warn('Could not read chat-logs.json:', compatError.message);
         }
         
         // Fallback to memory
@@ -302,6 +332,15 @@ export function saveChatLog(logEntry) {
             console.log('Chat log also saved to database file');
         } catch (dbError) {
             console.warn('Could not save log to database file (expected on Vercel):', dbError.message);
+        }
+
+        // Try to save to compatibility file (will fail on Vercel)
+        try {
+            const compatLogsPath = path.join(process.cwd(), 'chat-logs.json');
+            fs.writeFileSync(compatLogsPath, JSON.stringify(logs, null, 2));
+            console.log('Chat log also saved to chat-logs.json');
+        } catch (compatError) {
+            console.warn('Could not save log to chat-logs.json (expected on Vercel):', compatError.message);
         }
         
         return true;
