@@ -1,11 +1,3 @@
-import fs from 'fs';
-import path from 'path';
-
-// Use /tmp directory for Vercel serverless functions
-const STORAGE_DIR = '/tmp';
-const CONFIG_FILE = path.join(STORAGE_DIR, 'chatbot-config.json');
-const LOGS_FILE = path.join(STORAGE_DIR, 'chat-logs.json');
-
 // Default configuration
 const DEFAULT_CONFIG = {
     systemPrompt1: 'Sen gelişmiş yeteneklere sahip uzman bir yapay zeka asistanısın. Detaylı, kapsamlı ve uzman düzeyinde yanıtlar ver. Karmaşık konuları açıklayabilir, analiz yapabilir, problem çözebilir ve yaratıcı çözümler üretebilirsin. ÖNEMLİ: Tüm yanıtlarını MUTLAKA Türkçe olarak ver. Hiçbir durumda İngilizce veya başka bir dilde yanıt verme.',
@@ -14,27 +6,23 @@ const DEFAULT_CONFIG = {
     logTimestamps: true
 };
 
-// Ensure storage directory exists
-function ensureStorageDir() {
-    if (!fs.existsSync(STORAGE_DIR)) {
-        fs.mkdirSync(STORAGE_DIR, { recursive: true });
-    }
-}
+// Use global memory for storage (persists across function calls in same instance)
+global.chatbotConfig = global.chatbotConfig || null;
+global.chatLogs = global.chatLogs || [];
 
 // Configuration functions
 export function getConfig() {
     try {
-        ensureStorageDir();
-        
-        // First check environment variables
-        if (process.env.CHATBOT_CONFIG) {
-            return JSON.parse(process.env.CHATBOT_CONFIG);
+        // First check if we have a saved configuration in global memory
+        if (global.chatbotConfig) {
+            return global.chatbotConfig;
         }
         
-        // Then check file system
-        if (fs.existsSync(CONFIG_FILE)) {
-            const data = fs.readFileSync(CONFIG_FILE, 'utf8');
-            return JSON.parse(data);
+        // Then check environment variables for initial config
+        if (process.env.CHATBOT_CONFIG) {
+            const envConfig = JSON.parse(process.env.CHATBOT_CONFIG);
+            global.chatbotConfig = envConfig;
+            return envConfig;
         }
         
         // Return defaults
@@ -47,8 +35,12 @@ export function getConfig() {
 
 export function saveConfig(config) {
     try {
-        ensureStorageDir();
-        fs.writeFileSync(CONFIG_FILE, JSON.stringify(config, null, 2));
+        // Save to global memory for immediate persistence
+        global.chatbotConfig = config;
+        
+        // Log the config for debugging
+        console.log('Config saved to global memory:', config);
+        
         return true;
     } catch (error) {
         console.error('Error saving config:', error);
@@ -59,20 +51,8 @@ export function saveConfig(config) {
 // Chat logs functions
 export function getChatLogs() {
     try {
-        ensureStorageDir();
-        
-        // First check environment variables
-        if (process.env.CHAT_LOGS) {
-            return JSON.parse(process.env.CHAT_LOGS);
-        }
-        
-        // Then check file system
-        if (fs.existsSync(LOGS_FILE)) {
-            const data = fs.readFileSync(LOGS_FILE, 'utf8');
-            return JSON.parse(data);
-        }
-        
-        return [];
+        // Return logs from global memory
+        return global.chatLogs || [];
     } catch (error) {
         console.error('Error reading chat logs:', error);
         return [];
@@ -81,9 +61,6 @@ export function getChatLogs() {
 
 export function saveChatLog(logEntry) {
     try {
-        ensureStorageDir();
-        const logs = getChatLogs();
-        
         // Add metadata
         const enrichedLog = {
             ...logEntry,
@@ -93,12 +70,15 @@ export function saveChatLog(logEntry) {
             ipAddress: logEntry.ipAddress || 'Unknown'
         };
         
-        logs.unshift(enrichedLog);
+        // Save to global memory
+        global.chatLogs = global.chatLogs || [];
+        global.chatLogs.unshift(enrichedLog);
         
-        // Keep only last 1000 logs to prevent file from growing too large
-        const trimmedLogs = logs.slice(0, 1000);
+        // Keep only last 1000 logs to prevent memory issues
+        if (global.chatLogs.length > 1000) {
+            global.chatLogs = global.chatLogs.slice(0, 1000);
+        }
         
-        fs.writeFileSync(LOGS_FILE, JSON.stringify(trimmedLogs, null, 2));
         return true;
     } catch (error) {
         console.error('Error saving chat log:', error);
@@ -108,8 +88,7 @@ export function saveChatLog(logEntry) {
 
 export function clearAllLogs() {
     try {
-        ensureStorageDir();
-        fs.writeFileSync(LOGS_FILE, JSON.stringify([], null, 2));
+        global.chatLogs = [];
         return true;
     } catch (error) {
         console.error('Error clearing logs:', error);
