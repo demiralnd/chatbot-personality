@@ -114,7 +114,8 @@ class AdminPanel {
             });
 
             if (!configResponse.ok) {
-                throw new Error('Failed to save configuration');
+                const errorData = await configResponse.json().catch(() => ({}));
+                throw new Error(`Failed to save configuration: ${configResponse.status} - ${errorData.error || 'Unknown error'}`);
             }
 
             this.showSuccess('Ayarlar başarıyla sunucuya kaydedildi! Tüm kullanıcılar için geçerli olacak.');
