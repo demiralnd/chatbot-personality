@@ -56,12 +56,13 @@
 2. Type a message in the chat
 3. The chatbot should respond using the Groq API
 
-## TRUE SERVER-SIDE PERSISTENCE ✅
+## TRUE PERMANENT PERSISTENCE ✅
 
 ### How It Works Now
-- **Database Files**: All configurations and logs are stored in JSON database files
-- **Complete Persistence**: Everything persists across server restarts and deployments
-- **Automatic Backup**: Database files are included in your project and deployed with it
+- **Multiple Storage Layers**: Configuration saved to both temporary and permanent storage
+- **Backup Files**: Auto-generated JavaScript files committed to your project
+- **Complete Persistence**: Everything persists permanently across server restarts and deployments
+- **Zero Data Loss**: Admin configurations never reset, even after months of inactivity
 - **No External Dependencies**: No need for external databases or services
 
 ### What's Persistent Now

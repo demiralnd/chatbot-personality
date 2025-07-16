@@ -46,8 +46,10 @@ npx http-server
 - `admin-styles.css` - Yönetim paneli stilleri
 - `chatbot-script.js` - Gelişmiş chatbot fonksiyonalitesi
 - `admin-script.js` - Yönetim paneli fonksiyonalitesi
-- `api/log-chat.js` - Sunucu tarafı kayıt endpoint'i
-- `api/get-logs.js` - Sunucu tarafı kayıt alım endpoint'i
+- `api/admin.js` - Tüm yönetim operasyonları (yapılandırma, promptlar, kayıtlar)
+- `api/chat.js` - Sohbet fonksiyonalitesi
+- `api/config.js` - Genel yapılandırma ve API key durumu
+- `api/logs.js` - Kayıt operasyonları
 - `vercel.json` - Vercel dağıtım yapılandırması
 
 ## Teknik Detaylar

@@ -1,18 +1,4 @@
 {
-  "functions": {
-    "api/admin.js": {
-      "maxDuration": 10
-    },
-    "api/chat.js": {
-      "maxDuration": 10
-    },
-    "api/config.js": {
-      "maxDuration": 10
-    },
-    "api/logs.js": {
-      "maxDuration": 10
-    }
-  },
   "rewrites": [
     {
       "source": "/",
