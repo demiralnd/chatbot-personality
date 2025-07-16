@@ -120,9 +120,6 @@ class AdminPanel {
 
             this.showSuccess('Ayarlar başarıyla sunucuya kaydedildi! Tüm kullanıcılar için geçerli olacak.');
             this.showSaveStatus('Yapılandırma başarıyla güncellendi - Tüm kullanıcılar için aktif', 'success');
-            
-            // Check if we need to show environment variables for Vercel
-            setTimeout(() => this.checkVercelEnvVars(), 1000);
         } catch (error) {
             console.error('Error saving settings:', error);
             console.error('Error details:', {
@@ -422,6 +419,29 @@ class AdminPanel {
         }
     }
 
+    async testSupabaseConnection() {
+        try {
+            const response = await fetch('/api/admin?action=test-supabase', {
+                headers: {
+                    'Authorization': 'Bearer admin-token'
+                }
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                this.showSuccess('✅ Supabase connection successful!');
+                console.log('Supabase test result:', data);
+            } else {
+                this.showError('❌ Supabase connection failed: ' + data.error);
+                console.error('Supabase test failed:', data);
+            }
+        } catch (error) {
+            this.showError('❌ Error testing Supabase connection');
+            console.error('Error testing Supabase:', error);
+        }
+    }
+
     showVercelEnvVars(envVars, instructions) {
         const modal = document.createElement('div');
         modal.className = 'env-vars-modal';
@@ -517,6 +537,10 @@ function exportLogs() {
 
 function searchLogs() {
     adminPanel.searchLogs();
+}
+
+function testSupabaseConnection() {
+    adminPanel.testSupabaseConnection();
 }
 
 function closeChatModal() {

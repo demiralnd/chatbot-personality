@@ -5,11 +5,21 @@ const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_ANON_KEY;
 let supabase = null;
 
+console.log('🔍 DEBUG: Checking Supabase environment variables:');
+console.log('  - SUPABASE_URL:', supabaseUrl ? 'Found' : 'NOT FOUND');
+console.log('  - SUPABASE_ANON_KEY:', supabaseKey ? 'Found' : 'NOT FOUND');
+
 if (supabaseUrl && supabaseKey) {
-    supabase = createClient(supabaseUrl, supabaseKey);
-    console.log('✅ Supabase client initialized');
+    try {
+        supabase = createClient(supabaseUrl, supabaseKey);
+        console.log('✅ Supabase client initialized successfully');
+        console.log('  - URL:', supabaseUrl);
+    } catch (error) {
+        console.error('❌ Failed to initialize Supabase client:', error);
+    }
 } else {
     console.warn('⚠️ Supabase credentials not found in environment variables');
+    console.warn('  - Make sure SUPABASE_URL and SUPABASE_ANON_KEY are set in Vercel');
 }
 
 // In-memory storage for session-based caching
@@ -54,6 +64,8 @@ async function loadConfigFromDatabase() {
 
         if (error) {
             console.error('❌ Error loading config from Supabase:', error);
+            console.error('  - Error details:', error.message);
+            console.error('  - Error code:', error.code);
             return null;
         }
 

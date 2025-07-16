@@ -5,6 +5,7 @@ import {
     getChatLogs, 
     clearAllLogs
 } from './lib/database.js';
+import { createClient } from '@supabase/supabase-js';
 
 export default async function handler(req, res) {
     // Set CORS headers
@@ -42,6 +43,9 @@ export default async function handler(req, res) {
             
             case 'get-env-vars':
                 return await handleGetEnvVars(req, res);
+            
+            case 'test-supabase':
+                return await handleTestSupabase(req, res);
             
             default:
                 return res.status(400).json({ error: 'Invalid action' });
@@ -190,6 +194,69 @@ async function handleGetEnvVars(req, res) {
     } catch (error) {
         console.error('Error getting env vars:', error);
         res.status(500).json({ error: 'Failed to get environment variables' });
+    }
+}
+
+// Test Supabase connection
+async function handleTestSupabase(req, res) {
+    if (req.method !== 'GET') {
+        return res.status(405).json({ error: 'Method not allowed' });
+    }
+
+    try {
+        const supabaseUrl = process.env.SUPABASE_URL;
+        const supabaseKey = process.env.SUPABASE_ANON_KEY;
+        
+        console.log('🔍 Testing Supabase connection...');
+        console.log('  - SUPABASE_URL:', supabaseUrl ? 'Found' : 'NOT FOUND');
+        console.log('  - SUPABASE_ANON_KEY:', supabaseKey ? 'Found' : 'NOT FOUND');
+        
+        if (!supabaseUrl || !supabaseKey) {
+            return res.status(500).json({
+                success: false,
+                error: 'Supabase credentials not found',
+                details: {
+                    hasUrl: !!supabaseUrl,
+                    hasKey: !!supabaseKey
+                }
+            });
+        }
+        
+        const supabase = createClient(supabaseUrl, supabaseKey);
+        
+        // Test connection by trying to query the config table
+        const { data, error } = await supabase
+            .from('chatbot_config')
+            .select('count')
+            .limit(1);
+        
+        if (error) {
+            console.error('❌ Supabase test failed:', error);
+            return res.status(500).json({
+                success: false,
+                error: 'Supabase connection failed',
+                details: {
+                    message: error.message,
+                    code: error.code,
+                    hint: error.hint
+                }
+            });
+        }
+        
+        console.log('✅ Supabase connection successful');
+        res.status(200).json({
+            success: true,
+            message: 'Supabase connection successful',
+            url: supabaseUrl
+        });
+        
+    } catch (error) {
+        console.error('❌ Supabase test error:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Supabase test failed',
+            details: error.message
+        });
     }
 }
 
