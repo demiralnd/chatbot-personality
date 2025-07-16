@@ -1,5 +1,5 @@
-// This file exists only to fix Vercel deployment cache issues
-// All logging functionality has been moved to api/logs.js
+// DEPRECATED: This endpoint has been consolidated into /api/logs
+// This file exists only to satisfy Vercel's deployment cache
 
 export default function handler(req, res) {
     res.setHeader('Access-Control-Allow-Origin', '*');
@@ -11,9 +11,11 @@ export default function handler(req, res) {
         return;
     }
 
-    // Redirect to the correct endpoint
-    res.status(301).json({ 
-        error: 'This endpoint has been moved to /api/logs',
-        redirect: '/api/logs' 
+    // Return deprecation notice
+    res.status(200).json({ 
+        success: false,
+        error: 'This endpoint has been consolidated into /api/logs',
+        message: 'Please use /api/logs instead',
+        redirect: '/api/logs'
     });
 }
