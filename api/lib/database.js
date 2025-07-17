@@ -371,7 +371,7 @@ export async function saveChatLog(logEntry) {
         
         console.log('🔍 DEBUG: Enriched log:', enrichedLog);
         
-        // Check if this session already exists (for IP-based session updates)
+        // Check if this session already exists (for session-based updates)
         const existingIndex = logs.findIndex(log => log.id === enrichedLog.id);
         
         if (existingIndex !== -1) {
@@ -393,7 +393,7 @@ export async function saveChatLog(logEntry) {
         memoryLogs = logs;
         console.log('✅ Chat log saved to memory, total logs:', logs.length);
         
-        // Save to Supabase database (use upsert for IP-based sessions)
+        // Save to Supabase database
         const dbSuccess = await upsertLogToDatabase(enrichedLog);
         if (dbSuccess) {
             console.log('✅ Chat log saved to Supabase database');

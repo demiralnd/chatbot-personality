@@ -3,7 +3,7 @@ class GroqChatbot {
         this.chatbotId = chatbotId;
         this.systemPrompt = '';
         this.currentSession = [];
-        this.sessionMetadata = null;
+        this.sessionId = null;
         this.enableLogging = true;
         this.isConfigured = false;
         this.init();
@@ -12,7 +12,7 @@ class GroqChatbot {
     async init() {
         await this.loadSettings();
         this.setupEventListeners();
-        this.initializeSession();
+        this.generateSessionId();
     }
 
     setupEventListeners() {
@@ -29,40 +29,10 @@ class GroqChatbot {
         sendButton.addEventListener('click', () => this.sendMessage());
     }
 
-    async initializeSession() {
-        // Get IP address and create session ID based on chatbot selection
-        try {
-            const response = await fetch('/api/session', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    chatbotId: this.chatbotId,
-                    action: 'start'
-                })
-            });
-            
-            if (response.ok) {
-                const data = await response.json();
-                this.sessionMetadata = {
-                    sessionId: data.sessionId,
-                    ipAddress: data.ipAddress,
-                    userAgent: data.userAgent,
-                    startTime: new Date().toISOString()
-                };
-                console.log('Session initialized:', this.sessionMetadata);
-            }
-        } catch (error) {
-            console.error('Failed to initialize session:', error);
-            // Fallback session metadata
-            this.sessionMetadata = {
-                sessionId: `session-${this.chatbotId}-${Date.now()}`,
-                ipAddress: 'Unknown',
-                userAgent: navigator.userAgent,
-                startTime: new Date().toISOString()
-            };
-        }
+    generateSessionId() {
+        // Generate a unique session ID for this chat session
+        this.sessionId = `session-${this.chatbotId}-${Date.now()}-${Math.random().toString(36).substring(2)}`;
+        console.log('Generated session ID:', this.sessionId);
     }
 
     async loadSettings() {
@@ -147,9 +117,6 @@ class GroqChatbot {
             const response = await this.callChatAPI(message);
             this.hideTypingIndicator();
             this.addMessage('assistant', response);
-            
-            // Save session after each message exchange
-            await this.saveSessionUpdate();
         } catch (error) {
             this.hideTypingIndicator();
             this.addMessage('assistant', `Hata: ${error.message}`);
@@ -167,7 +134,8 @@ class GroqChatbot {
         const response = await fetch('/api/chat', {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/json'
+                'Content-Type': 'application/json',
+                'session-id': this.sessionId
             },
             body: JSON.stringify({
                 messages: messages,
@@ -249,48 +217,10 @@ class GroqChatbot {
             welcomeMessage.style.display = 'block';
         }
         
-        // Initialize new session
-        await this.initializeSession();
+        // Generate new session ID
+        this.generateSessionId();
     }
 
-    async saveSessionUpdate() {
-        if (!this.currentSession.length || !this.sessionMetadata || !this.enableLogging) return;
-        
-        try {
-            const firstUserMessage = this.currentSession.find(msg => msg.role === 'user');
-            const title = firstUserMessage ? 
-                (firstUserMessage.content.substring(0, 50) + (firstUserMessage.content.length > 50 ? '...' : '')) : 
-                'Chat Session';
-            
-            // Use IP-based session ID for consistent tracking
-            const sessionId = `${this.sessionMetadata.ipAddress}-chatbot${this.chatbotId}-${this.sessionMetadata.startTime}`;
-            
-            const logEntry = {
-                id: sessionId,
-                chatbotId: this.chatbotId,
-                chatbotName: `Chatbot ${this.chatbotId}`,
-                title: title,
-                messages: this.currentSession,
-                timestamp: this.sessionMetadata.startTime,
-                sessionId: this.sessionMetadata.sessionId,
-                ipAddress: this.sessionMetadata.ipAddress,
-                userAgent: this.sessionMetadata.userAgent
-            };
-            
-            await fetch('/api/logs', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    action: 'save',
-                    ...logEntry
-                })
-            });
-        } catch (error) {
-            console.error('Failed to save session update:', error);
-        }
-    }
 
 
     showNotification(message) {

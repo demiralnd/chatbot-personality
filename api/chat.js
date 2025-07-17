@@ -71,6 +71,26 @@ export default async function handler(req, res) {
         const data = await response.json();
         const assistantMessage = data.choices[0].message.content;
 
+        // Log the conversation if logging is enabled - session-based with IP tracking
+        if (config.enableLogging) {
+            const userMessage = messages[messages.length - 1]; // Get the latest user message
+            const ipAddress = req.headers['x-forwarded-for'] || req.connection?.remoteAddress || 'Unknown';
+            const sessionId = req.headers['session-id'] || `${ipAddress}-chatbot${chatbotId}-${Date.now()}`;
+            
+            const logEntry = {
+                id: sessionId,
+                chatbotId,
+                chatbotName: `Chatbot ${chatbotId}`,
+                title: userMessage.content.substring(0, 50) + (userMessage.content.length > 50 ? '...' : ''),
+                messages: [...messages, { role: 'assistant', content: assistantMessage }],
+                userAgent: req.headers['user-agent'],
+                ipAddress: ipAddress,
+                sessionId: sessionId,
+                timestamp: new Date().toISOString()
+            };
+            await saveChatLog(logEntry);
+        }
+
         res.status(200).json({ 
             success: true, 
             message: assistantMessage 
