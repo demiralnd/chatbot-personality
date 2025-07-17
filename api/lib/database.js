@@ -339,6 +339,8 @@ async function upsertLogToDatabase(log) {
                 ip_address: log.ipAddress,
                 session_id: log.sessionId,
                 timestamp: log.timestamp
+            }, {
+                onConflict: 'id'
             });
 
         if (error) {
@@ -362,7 +364,7 @@ export async function saveChatLog(logEntry) {
         
         const enrichedLog = {
             ...logEntry,
-            id: logEntry.id || Date.now().toString(),
+            id: logEntry.sessionId || Date.now().toString(), // Use sessionId as ID for grouping
             timestamp: logEntry.timestamp || new Date().toISOString(),
             userAgent: logEntry.userAgent || 'Unknown',
             ipAddress: logEntry.ipAddress || 'Unknown'
@@ -370,8 +372,18 @@ export async function saveChatLog(logEntry) {
         
         console.log('🔍 DEBUG: Enriched log:', enrichedLog);
         
-        // Add to beginning
-        logs.unshift(enrichedLog);
+        // Check if session already exists in memory
+        const existingIndex = logs.findIndex(log => log.id === enrichedLog.id);
+        
+        if (existingIndex !== -1) {
+            // Update existing session with new messages
+            logs[existingIndex] = enrichedLog;
+            console.log('✅ Updated existing session in memory');
+        } else {
+            // Add new session to beginning
+            logs.unshift(enrichedLog);
+            console.log('✅ Added new session to memory');
+        }
         
         // Keep only last 1000 logs
         if (logs.length > 1000) {
@@ -382,8 +394,8 @@ export async function saveChatLog(logEntry) {
         memoryLogs = logs;
         console.log('✅ Chat log saved to memory, total logs:', logs.length);
         
-        // Save to Supabase database
-        const dbSuccess = await saveLogToDatabase(enrichedLog);
+        // Save to Supabase database (will upsert based on sessionId)
+        const dbSuccess = await upsertLogToDatabase(enrichedLog);
         if (dbSuccess) {
             console.log('✅ Chat log saved to Supabase database');
         }
