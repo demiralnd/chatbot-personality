@@ -5,15 +5,12 @@ class GroqChatbot {
         this.currentSession = [];
         this.enableLogging = true;
         this.isConfigured = false;
-        this.sessionId = this.generateSessionId();
-        this.sessionStartTime = new Date().toISOString();
         this.init();
     }
 
     async init() {
         await this.loadSettings();
         this.setupEventListeners();
-        this.setupBeforeUnloadHandler();
     }
 
     setupEventListeners() {
@@ -28,26 +25,6 @@ class GroqChatbot {
         });
 
         sendButton.addEventListener('click', () => this.sendMessage());
-    }
-
-    setupBeforeUnloadHandler() {
-        // Save session when user closes tab or navigates away
-        window.addEventListener('beforeunload', () => {
-            if (this.currentSession.length > 0) {
-                // Use navigator.sendBeacon for reliable data sending on page unload
-                const sessionData = {
-                    id: this.sessionId,
-                    chatbotId: this.chatbotId,
-                    chatbotName: `Chatbot ${this.chatbotId}`,
-                    title: this.getSessionTitle(),
-                    timestamp: this.sessionStartTime,
-                    messages: this.currentSession
-                };
-
-                const blob = new Blob([JSON.stringify(sessionData)], { type: 'application/json' });
-                navigator.sendBeacon('/api/logs?action=save', blob);
-            }
-        });
     }
 
 
@@ -187,12 +164,7 @@ class GroqChatbot {
         chatMessages.scrollTop = chatMessages.scrollHeight;
 
         // Add to current session
-        this.currentSession.push({ role, content, timestamp: new Date().toISOString() });
-        
-        // Save session after each message exchange if logging is enabled
-        if (this.enableLogging && role === 'assistant') {
-            this.saveSession();
-        }
+        this.currentSession.push({ role, content });
     }
 
     showTypingIndicator() {
@@ -220,57 +192,10 @@ class GroqChatbot {
         }
     }
 
-    generateSessionId() {
-        return `session-${Date.now()}-${Math.random().toString(36).substring(2)}`;
-    }
-
-    async saveSession() {
-        if (!this.enableLogging || this.currentSession.length === 0) return;
-
-        try {
-            const sessionData = {
-                id: this.sessionId,
-                chatbotId: this.chatbotId,
-                chatbotName: `Chatbot ${this.chatbotId}`,
-                title: this.getSessionTitle(),
-                timestamp: this.sessionStartTime,
-                messages: this.currentSession
-            };
-
-            const response = await fetch('/api/logs?action=save', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(sessionData)
-            });
-
-            if (!response.ok) {
-                console.error('Failed to save session:', response.statusText);
-            }
-        } catch (error) {
-            console.error('Error saving session:', error);
-        }
-    }
-
-    getSessionTitle() {
-        const firstUserMessage = this.currentSession.find(msg => msg.role === 'user');
-        if (firstUserMessage) {
-            return firstUserMessage.content.substring(0, 50) + (firstUserMessage.content.length > 50 ? '...' : '');
-        }
-        return 'Untitled Session';
-    }
-
+    
     newChat() {
-        // Save current session before clearing if it has content
-        if (this.currentSession.length > 0) {
-            this.saveSession();
-        }
-        
-        // Clear current session and generate new session ID
+        // Clear current session
         this.currentSession = [];
-        this.sessionId = this.generateSessionId();
-        this.sessionStartTime = new Date().toISOString();
         
         // Clear chat messages from UI
         const messagesContainer = document.getElementById('chatMessages');
