@@ -30,8 +30,9 @@ class GroqChatbot {
     }
 
     generateSessionId() {
-        // Generate a unique session ID for this chat session
-        this.sessionId = `session-${this.chatbotId}-${Date.now()}-${Math.random().toString(36).substring(2)}`;
+        // Generate a session ID that will be consistent for this chat session
+        // This will be used to group messages together by session
+        this.sessionId = `session-${this.chatbotId}-${Date.now()}`;
         console.log('Generated session ID:', this.sessionId);
     }
 

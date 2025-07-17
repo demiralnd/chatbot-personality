@@ -19,7 +19,8 @@ if (supabaseUrl && supabaseKey) {
     }
 } else {
     console.warn('⚠️ Supabase credentials not found in environment variables');
-    console.warn('  - Make sure SUPABASE_URL and SUPABASE_ANON_KEY are set in Vercel');
+    console.warn('  - Using memory storage only for development');
+    console.warn('  - To use Supabase: Set SUPABASE_URL and SUPABASE_ANON_KEY environment variables');
 }
 
 // In-memory storage for session-based caching
@@ -371,18 +372,8 @@ export async function saveChatLog(logEntry) {
         
         console.log('🔍 DEBUG: Enriched log:', enrichedLog);
         
-        // Check if this session already exists (for session-based updates)
-        const existingIndex = logs.findIndex(log => log.id === enrichedLog.id);
-        
-        if (existingIndex !== -1) {
-            // Update existing session
-            logs[existingIndex] = enrichedLog;
-            console.log('✅ Updated existing session:', enrichedLog.id);
-        } else {
-            // Add new session to beginning
-            logs.unshift(enrichedLog);
-            console.log('✅ Added new session:', enrichedLog.id);
-        }
+        // Add to beginning of array (most recent first)
+        logs.unshift(enrichedLog);
         
         // Keep only last 1000 logs
         if (logs.length > 1000) {
@@ -394,7 +385,7 @@ export async function saveChatLog(logEntry) {
         console.log('✅ Chat log saved to memory, total logs:', logs.length);
         
         // Save to Supabase database
-        const dbSuccess = await upsertLogToDatabase(enrichedLog);
+        const dbSuccess = await saveLogToDatabase(enrichedLog);
         if (dbSuccess) {
             console.log('✅ Chat log saved to Supabase database');
         }
