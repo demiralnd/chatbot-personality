@@ -33,12 +33,12 @@ export default async function handler(req, res) {
     }
 }
 
-function handleSaveChatLog(req, res) {
+async function handleSaveChatLog(req, res) {
     if (req.method !== 'POST') {
         return res.status(405).json({ error: 'Method not allowed' });
     }
 
-    const { id, chatbotId, chatbotName, title, timestamp, messages } = req.body;
+    const { id, chatbotId, chatbotName, title, timestamp, messages, sessionId, ipAddress, userAgent } = req.body;
 
     // Validate required fields
     if (!chatbotId || !messages || !timestamp || !Array.isArray(messages)) {
@@ -53,13 +53,13 @@ function handleSaveChatLog(req, res) {
             chatbotName: chatbotName || `Chatbot ${chatbotId}`,
             title: title || 'Untitled Session',
             timestamp,
-            messageCount: messages.length,
             messages,
-            ipAddress: req.headers['x-forwarded-for'] || req.connection?.remoteAddress || 'Unknown',
-            userAgent: req.headers['user-agent'] || 'Unknown'
+            sessionId: sessionId || `session-${Date.now()}-${Math.random().toString(36).substring(2)}`,
+            ipAddress: ipAddress || req.headers['x-forwarded-for'] || req.connection?.remoteAddress || 'Unknown',
+            userAgent: userAgent || req.headers['user-agent'] || 'Unknown'
         };
 
-        const saved = saveChatLog(sessionLogEntry);
+        const saved = await saveChatLog(sessionLogEntry);
 
         if (saved) {
             res.status(200).json({ 

@@ -3,6 +3,7 @@ class GroqChatbot {
         this.chatbotId = chatbotId;
         this.systemPrompt = '';
         this.currentSession = [];
+        this.sessionMetadata = null;
         this.enableLogging = true;
         this.isConfigured = false;
         this.init();
@@ -31,23 +32,27 @@ class GroqChatbot {
     setupSessionSaving() {
         // Save session on page unload
         window.addEventListener('beforeunload', () => {
-            if (this.currentSession.length > 0 && this.enableLogging) {
+            if (this.currentSession.length > 0 && this.enableLogging && this.sessionMetadata) {
                 // Use sendBeacon for reliable delivery during page unload
                 const firstUserMessage = this.currentSession.find(msg => msg.role === 'user');
                 const title = firstUserMessage ? 
                     (firstUserMessage.content.substring(0, 50) + (firstUserMessage.content.length > 50 ? '...' : '')) : 
                     'Chat Session';
                 
-                const sessionData = {
+                const logEntry = {
                     action: 'save',
+                    id: `session-${Date.now()}-${Math.random().toString(36).substring(2)}`,
                     chatbotId: this.chatbotId,
                     chatbotName: `Chatbot ${this.chatbotId}`,
                     title: title,
                     messages: this.currentSession,
-                    timestamp: new Date().toISOString()
+                    timestamp: new Date().toISOString(),
+                    sessionId: this.sessionMetadata.sessionId,
+                    ipAddress: this.sessionMetadata.ipAddress,
+                    userAgent: this.sessionMetadata.userAgent
                 };
                 
-                navigator.sendBeacon('/api/logs', JSON.stringify(sessionData));
+                navigator.sendBeacon('/api/logs', JSON.stringify(logEntry));
             }
         });
     }
@@ -155,7 +160,8 @@ class GroqChatbot {
             },
             body: JSON.stringify({
                 messages: messages,
-                chatbotId: this.chatbotId
+                chatbotId: this.chatbotId,
+                sessionId: this.sessionMetadata?.sessionId
             })
         });
 
@@ -165,6 +171,12 @@ class GroqChatbot {
         }
 
         const data = await response.json();
+        
+        // Store session metadata from first response
+        if (data.sessionData && !this.sessionMetadata) {
+            this.sessionMetadata = data.sessionData;
+        }
+        
         return data.message;
     }
 
@@ -219,12 +231,13 @@ class GroqChatbot {
     
     async newChat() {
         // Save current session if it has messages
-        if (this.currentSession.length > 0 && this.enableLogging) {
+        if (this.currentSession.length > 0 && this.enableLogging && this.sessionMetadata) {
             await this.saveCurrentSession();
         }
         
-        // Clear current session
+        // Clear current session and metadata
         this.currentSession = [];
+        this.sessionMetadata = null;
         
         // Clear chat messages from UI
         const messagesContainer = document.getElementById('chatMessages');
@@ -240,7 +253,7 @@ class GroqChatbot {
     }
 
     async saveCurrentSession() {
-        if (!this.currentSession.length) return;
+        if (!this.currentSession.length || !this.sessionMetadata) return;
         
         try {
             const firstUserMessage = this.currentSession.find(msg => msg.role === 'user');
@@ -248,12 +261,17 @@ class GroqChatbot {
                 (firstUserMessage.content.substring(0, 50) + (firstUserMessage.content.length > 50 ? '...' : '')) : 
                 'Chat Session';
             
-            const sessionData = {
+            // Use the Supabase-compatible format that saveChatLog expects
+            const logEntry = {
+                id: `session-${Date.now()}-${Math.random().toString(36).substring(2)}`,
                 chatbotId: this.chatbotId,
                 chatbotName: `Chatbot ${this.chatbotId}`,
                 title: title,
                 messages: this.currentSession,
-                timestamp: new Date().toISOString()
+                timestamp: new Date().toISOString(),
+                sessionId: this.sessionMetadata.sessionId,
+                ipAddress: this.sessionMetadata.ipAddress,
+                userAgent: this.sessionMetadata.userAgent
             };
             
             await fetch('/api/logs', {
@@ -263,7 +281,7 @@ class GroqChatbot {
                 },
                 body: JSON.stringify({
                     action: 'save',
-                    ...sessionData
+                    ...logEntry
                 })
             });
         } catch (error) {
