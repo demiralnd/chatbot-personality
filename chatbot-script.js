@@ -3,7 +3,6 @@ class GroqChatbot {
         this.chatbotId = chatbotId;
         this.systemPrompt = '';
         this.currentSession = [];
-        this.sessionId = null;
         this.enableLogging = true;
         this.isConfigured = false;
         this.init();
@@ -12,7 +11,6 @@ class GroqChatbot {
     async init() {
         await this.loadSettings();
         this.setupEventListeners();
-        this.generateSessionId();
     }
 
     setupEventListeners() {
@@ -29,12 +27,6 @@ class GroqChatbot {
         sendButton.addEventListener('click', () => this.sendMessage());
     }
 
-    generateSessionId() {
-        // Generate a session ID that will be consistent for this chat session
-        // This will be used to group messages together by session
-        this.sessionId = `session-${this.chatbotId}-${Date.now()}`;
-        console.log('Generated session ID:', this.sessionId);
-    }
 
     async loadSettings() {
         // Check if server is configured
@@ -135,8 +127,7 @@ class GroqChatbot {
         const response = await fetch('/api/chat', {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/json',
-                'session-id': this.sessionId
+                'Content-Type': 'application/json'
             },
             body: JSON.stringify({
                 messages: messages,
@@ -202,7 +193,7 @@ class GroqChatbot {
     }
 
     
-    async newChat() {
+    newChat() {
         // Clear current session
         this.currentSession = [];
         
@@ -217,9 +208,6 @@ class GroqChatbot {
         if (welcomeMessage) {
             welcomeMessage.style.display = 'block';
         }
-        
-        // Generate new session ID
-        this.generateSessionId();
     }
 
 

@@ -19,8 +19,7 @@ if (supabaseUrl && supabaseKey) {
     }
 } else {
     console.warn('⚠️ Supabase credentials not found in environment variables');
-    console.warn('  - Using memory storage only for development');
-    console.warn('  - To use Supabase: Set SUPABASE_URL and SUPABASE_ANON_KEY environment variables');
+    console.warn('  - Make sure SUPABASE_URL and SUPABASE_ANON_KEY are set in Vercel');
 }
 
 // In-memory storage for session-based caching
@@ -297,7 +296,6 @@ async function saveLogToDatabase(log) {
         const { error } = await supabase
             .from('chat_logs')
             .insert({
-                id: log.id,
                 chatbot_id: log.chatbotId,
                 chatbot_name: log.chatbotName,
                 title: log.title,
@@ -372,7 +370,7 @@ export async function saveChatLog(logEntry) {
         
         console.log('🔍 DEBUG: Enriched log:', enrichedLog);
         
-        // Add to beginning of array (most recent first)
+        // Add to beginning
         logs.unshift(enrichedLog);
         
         // Keep only last 1000 logs
