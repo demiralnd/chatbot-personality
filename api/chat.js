@@ -71,21 +71,9 @@ export default async function handler(req, res) {
         const data = await response.json();
         const assistantMessage = data.choices[0].message.content;
 
-        // Store message in session for later session-based logging
-        const sessionData = {
-            userMessage: messages[messages.length - 1],
-            assistantMessage: assistantMessage,
-            timestamp: new Date().toISOString(),
-            ipAddress: req.headers['x-forwarded-for'] || req.connection?.remoteAddress || 'Unknown',
-            userAgent: req.headers['user-agent'] || 'Unknown',
-            sessionId: req.headers['session-id'] || req.body.sessionId || `session-${Date.now()}-${Math.random().toString(36).substring(2)}`
-        };
-        
-        // Return session data for frontend to manage
         res.status(200).json({ 
             success: true, 
-            message: assistantMessage,
-            sessionData: sessionData
+            message: assistantMessage 
         });
 
     } catch (error) {

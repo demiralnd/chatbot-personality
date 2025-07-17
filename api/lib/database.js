@@ -296,6 +296,7 @@ async function saveLogToDatabase(log) {
         const { error } = await supabase
             .from('chat_logs')
             .insert({
+                id: log.id,
                 chatbot_id: log.chatbotId,
                 chatbot_name: log.chatbotName,
                 title: log.title,
@@ -319,6 +320,41 @@ async function saveLogToDatabase(log) {
     }
 }
 
+// Upsert (insert or update) a chat log in Supabase
+async function upsertLogToDatabase(log) {
+    if (!supabase) {
+        console.warn('⚠️ Supabase client not initialized');
+        return false;
+    }
+
+    try {
+        const { error } = await supabase
+            .from('chat_logs')
+            .upsert({
+                id: log.id,
+                chatbot_id: log.chatbotId,
+                chatbot_name: log.chatbotName,
+                title: log.title,
+                messages: log.messages,
+                user_agent: log.userAgent,
+                ip_address: log.ipAddress,
+                session_id: log.sessionId,
+                timestamp: log.timestamp
+            });
+
+        if (error) {
+            console.error('❌ Error upserting log to Supabase:', error);
+            return false;
+        }
+
+        console.log('✅ Chat log upserted to Supabase successfully');
+        return true;
+    } catch (error) {
+        console.error('❌ Error upserting log to database:', error);
+        return false;
+    }
+}
+
 export async function saveChatLog(logEntry) {
     try {
         console.log('🔍 DEBUG: Saving chat log entry:', logEntry);
@@ -335,8 +371,18 @@ export async function saveChatLog(logEntry) {
         
         console.log('🔍 DEBUG: Enriched log:', enrichedLog);
         
-        // Add to beginning
-        logs.unshift(enrichedLog);
+        // Check if this session already exists (for IP-based session updates)
+        const existingIndex = logs.findIndex(log => log.id === enrichedLog.id);
+        
+        if (existingIndex !== -1) {
+            // Update existing session
+            logs[existingIndex] = enrichedLog;
+            console.log('✅ Updated existing session:', enrichedLog.id);
+        } else {
+            // Add new session to beginning
+            logs.unshift(enrichedLog);
+            console.log('✅ Added new session:', enrichedLog.id);
+        }
         
         // Keep only last 1000 logs
         if (logs.length > 1000) {
@@ -347,8 +393,8 @@ export async function saveChatLog(logEntry) {
         memoryLogs = logs;
         console.log('✅ Chat log saved to memory, total logs:', logs.length);
         
-        // Save to Supabase database
-        const dbSuccess = await saveLogToDatabase(enrichedLog);
+        // Save to Supabase database (use upsert for IP-based sessions)
+        const dbSuccess = await upsertLogToDatabase(enrichedLog);
         if (dbSuccess) {
             console.log('✅ Chat log saved to Supabase database');
         }
