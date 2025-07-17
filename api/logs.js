@@ -13,7 +13,8 @@ export default async function handler(req, res) {
         return;
     }
 
-    const { action } = req.query;
+    // Get action from query params or request body
+    const action = req.query.action || req.body?.action;
 
     try {
         switch (action) {

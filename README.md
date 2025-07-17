@@ -1,88 +1,83 @@
-# Chatbot Kişilik Çalışması
+# Chatbot Personality Study
 
-Groq API kullanarak Apple tasarım ilkelerinden ilham alan modern, minimalist bir chatbot uygulaması.
+A modern web application for conducting chatbot personality research using advanced AI models. This project enables comparative analysis of chatbot interactions with customizable system prompts and comprehensive logging capabilities.
 
-## Özellikler
+## Features
 
-- **Modern Arayüz**: Apple'ın tasarım dilinden ilham alan temiz, minimalist tasarım
-- **Groq API Entegrasyonu**: Groq'un hızlı AI modelleri ile güçlendirilmiş
-- **Çoklu Chatbot**: Farklı kişiliklere sahip 2 ayrı chatbot
-- **Sohbet Kayıtları**: Tüm konuşmalar otomatik olarak kaydedilir ve görüntülenebilir
-- **Sistem İstemi Yapılandırması**: Her chatbot için ayrı davranış tanımlaması
-- **Responsive Tasarım**: Masaüstü ve mobil cihazlarda çalışır
-- **Yerel Depolama**: Ayarlar ve sohbet geçmişi yerel olarak saklanır
-- **Sunucu Tarafı Kayıt**: Vercel dağıtımı için API endpoint'leri
+- **Dual Chatbot Interface**: Two independent chatbot instances for comparative personality studies
+- **Real-time AI Conversations**: Powered by Groq API using Meta Llama 4 Maverick model
+- **Admin Dashboard**: Secure management panel for configuration and monitoring
+- **Conversation Logging**: Comprehensive chat history with metadata tracking
+- **Customizable System Prompts**: Configure unique personalities for each chatbot
+- **Session Management**: Track user interactions across sessions
+- **Export Functionality**: Download chat logs in JSON format for analysis
+- **Responsive Design**: Modern, Apple-inspired UI that works on all devices
 
-## Kurulum
+## Technologies & Stack
 
-1. Proje dosyalarını indirin
-2. [Groq Console](https://console.groq.com/)'dan API anahtarınızı alın
-3. `index.html`'i web tarayıcısında açın veya yerel olarak servis edin:
+### Frontend
+- **HTML5** - Semantic markup
+- **CSS3** - Modern styling with CSS Grid and Flexbox
+- **Vanilla JavaScript** - No framework dependencies
+- **Google Fonts** - SF Pro Display typography
 
-```bash
-# Python 3 kullanarak
-python3 -m http.server 8000
+### Backend
+- **Node.js** - Runtime environment
+- **Vercel Functions** - Serverless API endpoints
+- **Supabase** - Database and authentication
+- **Groq API** - AI model integration
 
-# Node.js kullanarak (http-server yüklüyse)
-npx http-server
+### Infrastructure
+- **Vercel** - Hosting and deployment
+- **Environment Variables** - Secure configuration
+- **CORS** - Cross-origin resource sharing
 
-# Ardından http://localhost:8000 adresini ziyaret edin
+## Programming Languages
+
+- **JavaScript (ES6+)** - Primary language for both frontend and backend
+- **HTML** - Markup for web pages
+- **CSS** - Styling and animations
+- **JSON** - Configuration and data storage
+
+## Project Structure
+
+```
+├── api/                    # Serverless functions
+│   ├── admin.js           # Admin authentication
+│   ├── chat.js            # Chat API endpoint
+│   ├── config.js          # Configuration management
+│   ├── logs.js            # Chat logs API
+│   └── lib/
+│       └── database.js    # Supabase integration
+├── database/              # Local database files
+├── admin.html             # Admin dashboard
+├── chatbot1.html          # First chatbot interface
+├── chatbot2.html          # Second chatbot interface
+├── index.html             # Landing page
+├── package.json           # Dependencies
+└── vercel.json           # Deployment configuration
 ```
 
-## Kullanım
+## Key Capabilities
 
-1. **Ayarları Yapılandırın**: Yönetim paneline giderek Groq API anahtarınızı ve sistem istemlerinizi girin
-2. **Chatbot Seçin**: Ana sayfadan Chatbot 1 veya Chatbot 2'yi seçin
-3. **Sohbet Edin**: Mesajınızı yazın ve Enter'a basın veya gönder butonuna tıklayın
-4. **Sohbet Kayıtlarını Görüntüleyin**: Yönetim panelinden geçmiş konuşmaları inceleyebilirsiniz
+- **Academic Research**: Designed for personality and behavior studies
+- **Real-time Processing**: Instant AI responses with streaming support
+- **Data Privacy**: Secure handling of conversation data
+- **Scalability**: Serverless architecture for handling multiple concurrent users
+- **Extensibility**: Modular design for easy feature additions
 
-## Dosya Yapısı
+## Getting Started
 
-- `index.html` - Ana seçim sayfası
-- `chatbot1.html` & `chatbot2.html` - Bireysel sohbet arayüzleri
-- `admin.html` - Yönetim paneli
-- `main-styles.css` - Ana sayfa için stil dosyası
-- `styles.css` - Sohbet arayüzü stilleri (responsive)
-- `admin-styles.css` - Yönetim paneli stilleri
-- `chatbot-script.js` - Gelişmiş chatbot fonksiyonalitesi
-- `admin-script.js` - Yönetim paneli fonksiyonalitesi
-- `api/admin.js` - Tüm yönetim operasyonları (yapılandırma, promptlar, kayıtlar)
-- `api/chat.js` - Sohbet fonksiyonalitesi
-- `api/config.js` - Genel yapılandırma ve API key durumu
-- `api/logs.js` - Kayıt operasyonları
-- `vercel.json` - Vercel dağıtım yapılandırması
+1. Clone the repository
+2. Install dependencies: `npm install`
+3. Set up environment variables (Groq API key, Supabase credentials)
+4. Run development server: `npm run dev`
+5. Access at `http://localhost:8000`
 
-## Teknik Detaylar
+## Deployment
 
-- Groq'un `llama-3.3-70b-versatile` modelini kullanır
-- Konuşmalar tarayıcının localStorage'ında saklanır
-- Responsive grid layout
-- Modern CSS animasyonları ve geçişleri
-- API hataları için hata yönetimi
-- Türkçe dil desteği
+This project is optimized for Vercel deployment with automatic serverless function setup and environment variable management.
 
-## Yönetim Paneli Erişimi
+---
 
-- URL: `/admin.html`
-- Kullanıcı Adı: `yildiz`
-- Şifre: `yildiz1705`
-
-## Vercel Dağıtımı
-
-Proje Vercel'de dağıtıma hazırdır ve kapsamlı kayıt fonksiyonalitesi içerir:
-
-1. Vercel hesabınıza bağlayın
-2. Çevre değişkenlerini ayarlayın (gerekirse)
-3. Dağıtın
-
-## Tarayıcı Desteği
-
-Aşağıdakileri destekleyen tüm modern tarayıcılarda çalışır:
-- ES6 Classes
-- Fetch API
-- CSS Grid
-- Local Storage
-
-## Lisans
-
-Bu proje eğitim ve araştırma amaçlı geliştirilmiştir.
+*Developed for Anadolu University, Department of Public Relations and Advertising*

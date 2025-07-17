@@ -11,6 +11,7 @@ class GroqChatbot {
     async init() {
         await this.loadSettings();
         this.setupEventListeners();
+        this.setupSessionSaving();
     }
 
     setupEventListeners() {
@@ -25,6 +26,30 @@ class GroqChatbot {
         });
 
         sendButton.addEventListener('click', () => this.sendMessage());
+    }
+
+    setupSessionSaving() {
+        // Save session on page unload
+        window.addEventListener('beforeunload', () => {
+            if (this.currentSession.length > 0 && this.enableLogging) {
+                // Use sendBeacon for reliable delivery during page unload
+                const firstUserMessage = this.currentSession.find(msg => msg.role === 'user');
+                const title = firstUserMessage ? 
+                    (firstUserMessage.content.substring(0, 50) + (firstUserMessage.content.length > 50 ? '...' : '')) : 
+                    'Chat Session';
+                
+                const sessionData = {
+                    action: 'save',
+                    chatbotId: this.chatbotId,
+                    chatbotName: `Chatbot ${this.chatbotId}`,
+                    title: title,
+                    messages: this.currentSession,
+                    timestamp: new Date().toISOString()
+                };
+                
+                navigator.sendBeacon('/api/logs', JSON.stringify(sessionData));
+            }
+        });
     }
 
     async loadSettings() {
@@ -192,7 +217,12 @@ class GroqChatbot {
     }
 
     
-    newChat() {
+    async newChat() {
+        // Save current session if it has messages
+        if (this.currentSession.length > 0 && this.enableLogging) {
+            await this.saveCurrentSession();
+        }
+        
         // Clear current session
         this.currentSession = [];
         
@@ -206,6 +236,38 @@ class GroqChatbot {
         const welcomeMessage = document.querySelector('.welcome-message');
         if (welcomeMessage) {
             welcomeMessage.style.display = 'block';
+        }
+    }
+
+    async saveCurrentSession() {
+        if (!this.currentSession.length) return;
+        
+        try {
+            const firstUserMessage = this.currentSession.find(msg => msg.role === 'user');
+            const title = firstUserMessage ? 
+                (firstUserMessage.content.substring(0, 50) + (firstUserMessage.content.length > 50 ? '...' : '')) : 
+                'Chat Session';
+            
+            const sessionData = {
+                chatbotId: this.chatbotId,
+                chatbotName: `Chatbot ${this.chatbotId}`,
+                title: title,
+                messages: this.currentSession,
+                timestamp: new Date().toISOString()
+            };
+            
+            await fetch('/api/logs', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    action: 'save',
+                    ...sessionData
+                })
+            });
+        } catch (error) {
+            console.error('Failed to save session:', error);
         }
     }
 

@@ -71,20 +71,7 @@ export default async function handler(req, res) {
         const data = await response.json();
         const assistantMessage = data.choices[0].message.content;
 
-        // Log the conversation if logging is enabled
-        if (config.enableLogging) {
-            const userMessage = messages[messages.length - 1]; // Get the latest user message
-            const logEntry = {
-                chatbotId,
-                chatbotName: `Chatbot ${chatbotId}`,
-                title: userMessage.content.substring(0, 50) + (userMessage.content.length > 50 ? '...' : ''),
-                messages: [...messages, { role: 'assistant', content: assistantMessage }],
-                userAgent: req.headers['user-agent'],
-                ipAddress: req.headers['x-forwarded-for'] || req.connection?.remoteAddress || 'Unknown',
-                sessionId: req.headers['session-id'] || `session-${Date.now()}-${Math.random().toString(36).substring(2)}`
-            };
-            await saveChatLog(logEntry);
-        }
+        // Per-message logging removed - now handled by session-based logging
 
         res.status(200).json({ 
             success: true, 
