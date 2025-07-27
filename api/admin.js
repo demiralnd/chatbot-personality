@@ -208,37 +208,78 @@ async function handleTestSupabase(req, res) {
         const supabaseKey = process.env.SUPABASE_ANON_KEY;
         
         console.log('🔍 Testing Supabase connection...');
-        console.log('  - SUPABASE_URL:', supabaseUrl ? 'Found' : 'NOT FOUND');
-        console.log('  - SUPABASE_ANON_KEY:', supabaseKey ? 'Found' : 'NOT FOUND');
+        console.log('  - SUPABASE_URL:', supabaseUrl ? `Found (${supabaseUrl})` : 'NOT FOUND');
+        console.log('  - SUPABASE_ANON_KEY:', supabaseKey ? `Found (${supabaseKey.substring(0, 10)}...)` : 'NOT FOUND');
+        console.log('  - Environment:', process.env.VERCEL_ENV || 'local');
         
         if (!supabaseUrl || !supabaseKey) {
+            const missingVars = [];
+            if (!supabaseUrl) missingVars.push('SUPABASE_URL');
+            if (!supabaseKey) missingVars.push('SUPABASE_ANON_KEY');
+            
             return res.status(500).json({
                 success: false,
                 error: 'Supabase credentials not found',
                 details: {
+                    missing: missingVars,
                     hasUrl: !!supabaseUrl,
-                    hasKey: !!supabaseKey
+                    hasKey: !!supabaseKey,
+                    environment: process.env.VERCEL_ENV || 'local',
+                    help: 'Please set these environment variables in Vercel dashboard under Settings > Environment Variables'
+                }
+            });
+        }
+        
+        // Validate URL format
+        if (!supabaseUrl.includes('.supabase.co')) {
+            return res.status(500).json({
+                success: false,
+                error: 'Invalid Supabase URL format',
+                details: {
+                    currentUrl: supabaseUrl,
+                    expectedFormat: 'https://[project-ref].supabase.co',
+                    help: 'Check your SUPABASE_URL in Vercel environment variables'
                 }
             });
         }
         
         const supabase = createClient(supabaseUrl, supabaseKey);
         
-        // Test connection by trying to query the config table
-        const { data, error } = await supabase
+        // Test 1: Try to query the config table
+        console.log('📊 Testing chatbot_config table access...');
+        const { data: configData, error: configError } = await supabase
             .from('chatbot_config')
             .select('count')
             .limit(1);
         
-        if (error) {
-            console.error('❌ Supabase test failed:', error);
+        // Test 2: Try to query the logs table
+        console.log('📊 Testing chat_logs table access...');
+        const { data: logsData, error: logsError } = await supabase
+            .from('chat_logs')
+            .select('count')
+            .limit(1);
+        
+        const results = {
+            chatbot_config: configError ? { error: configError.message, code: configError.code } : { success: true },
+            chat_logs: logsError ? { error: logsError.message, code: logsError.code } : { success: true }
+        };
+        
+        const hasErrors = configError || logsError;
+        
+        if (hasErrors) {
+            console.error('❌ Supabase test failed with errors');
             return res.status(500).json({
                 success: false,
-                error: 'Supabase connection failed',
+                error: 'Supabase connection test failed',
                 details: {
-                    message: error.message,
-                    code: error.code,
-                    hint: error.hint
+                    tables: results,
+                    possibleCauses: [
+                        'Tables might not exist in your Supabase database',
+                        'RLS (Row Level Security) policies might be blocking access',
+                        'Anonymous key might not have proper permissions',
+                        'Supabase project might be paused or inactive'
+                    ],
+                    help: 'Check your Supabase dashboard and ensure tables exist with proper permissions'
                 }
             });
         }
@@ -247,7 +288,9 @@ async function handleTestSupabase(req, res) {
         res.status(200).json({
             success: true,
             message: 'Supabase connection successful',
-            url: supabaseUrl
+            url: supabaseUrl,
+            tables: results,
+            environment: process.env.VERCEL_ENV || 'local'
         });
         
     } catch (error) {
@@ -255,7 +298,11 @@ async function handleTestSupabase(req, res) {
         res.status(500).json({
             success: false,
             error: 'Supabase test failed',
-            details: error.message
+            details: {
+                message: error.message,
+                stack: error.stack,
+                help: 'Check server logs for more details'
+            }
         });
     }
 }

@@ -6,20 +6,58 @@ const supabaseKey = process.env.SUPABASE_ANON_KEY;
 let supabase = null;
 
 console.log('🔍 DEBUG: Checking Supabase environment variables:');
-console.log('  - SUPABASE_URL:', supabaseUrl ? 'Found' : 'NOT FOUND');
-console.log('  - SUPABASE_ANON_KEY:', supabaseKey ? 'Found' : 'NOT FOUND');
+console.log('  - SUPABASE_URL:', supabaseUrl ? `Found (${supabaseUrl})` : 'NOT FOUND');
+console.log('  - SUPABASE_ANON_KEY:', supabaseKey ? `Found (${supabaseKey.substring(0, 10)}...)` : 'NOT FOUND');
+console.log('  - Node Environment:', process.env.NODE_ENV);
+console.log('  - Vercel Environment:', process.env.VERCEL_ENV);
 
 if (supabaseUrl && supabaseKey) {
     try {
+        // Validate URL format
+        if (!supabaseUrl.includes('.supabase.co')) {
+            console.error('❌ Invalid Supabase URL format. Expected format: https://[project-ref].supabase.co');
+        }
+        
         supabase = createClient(supabaseUrl, supabaseKey);
         console.log('✅ Supabase client initialized successfully');
         console.log('  - URL:', supabaseUrl);
+        
+        // Test connection immediately
+        testSupabaseConnection();
     } catch (error) {
         console.error('❌ Failed to initialize Supabase client:', error);
+        console.error('  - Error name:', error.name);
+        console.error('  - Error message:', error.message);
+        console.error('  - Stack trace:', error.stack);
     }
 } else {
     console.warn('⚠️ Supabase credentials not found in environment variables');
     console.warn('  - Make sure SUPABASE_URL and SUPABASE_ANON_KEY are set in Vercel');
+    console.warn('  - For local development, create a .env.local file');
+}
+
+// Test Supabase connection
+async function testSupabaseConnection() {
+    if (!supabase) return;
+    
+    try {
+        console.log('🔄 Testing Supabase connection...');
+        const { data, error } = await supabase
+            .from('chatbot_config')
+            .select('count')
+            .limit(1);
+            
+        if (error) {
+            console.error('❌ Supabase connection test failed:', error.message);
+            console.error('  - Error code:', error.code);
+            console.error('  - Error hint:', error.hint);
+            console.error('  - Error details:', error.details);
+        } else {
+            console.log('✅ Supabase connection test successful');
+        }
+    } catch (error) {
+        console.error('❌ Unexpected error during connection test:', error);
+    }
 }
 
 // In-memory storage for session-based caching
