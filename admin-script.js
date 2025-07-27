@@ -420,6 +420,9 @@ class AdminPanel {
     }
 
     async testSupabaseConnection() {
+        console.log('🔄 Testing Supabase connection...');
+        alert('Testing Supabase connection... Check the console for details.');
+        
         try {
             const response = await fetch('/api/admin?action=test-supabase', {
                 headers: {
@@ -427,17 +430,30 @@ class AdminPanel {
                 }
             });
             
+            console.log('Response status:', response.status);
             const data = await response.json();
+            console.log('Response data:', data);
             
             if (data.success) {
                 this.showSuccess('✅ Supabase connection successful!');
                 console.log('Supabase test result:', data);
             } else {
-                this.showError('❌ Supabase connection failed: ' + data.error);
+                this.showError('❌ Supabase connection failed: ' + (data.error || 'Unknown error'));
                 console.error('Supabase test failed:', data);
+                
+                // Show detailed error information
+                if (data.details) {
+                    console.error('Error details:', data.details);
+                    if (data.details.missing) {
+                        this.showError('Missing environment variables: ' + data.details.missing.join(', '));
+                    }
+                    if (data.details.help) {
+                        console.log('Help:', data.details.help);
+                    }
+                }
             }
         } catch (error) {
-            this.showError('❌ Error testing Supabase connection');
+            this.showError('❌ Error testing Supabase connection: ' + error.message);
             console.error('Error testing Supabase:', error);
         }
     }
@@ -540,6 +556,12 @@ function searchLogs() {
 }
 
 function testSupabaseConnection() {
+    console.log('Button clicked - testSupabaseConnection called');
+    if (!adminPanel) {
+        console.error('adminPanel not initialized!');
+        alert('Admin panel not initialized. Please refresh the page.');
+        return;
+    }
     adminPanel.testSupabaseConnection();
 }
 
