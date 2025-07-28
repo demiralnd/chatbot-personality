@@ -187,7 +187,7 @@ class GroqChatbot {
         chatMessages.scrollTop = chatMessages.scrollHeight;
 
         // Add to current session
-        this.currentSession.push({ role, content, timestamp: new Date().toISOString() });
+        this.currentSession.push({ role, content });
         
         // Save session after each message exchange if logging is enabled
         if (this.enableLogging && role === 'assistant') {
