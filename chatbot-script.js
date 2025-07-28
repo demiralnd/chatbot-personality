@@ -3,6 +3,7 @@ class GroqChatbot {
         this.chatbotId = chatbotId;
         this.systemPrompt = '';
         this.currentSession = [];
+        this.messageTimestamps = []; // Track timestamps separately
         this.enableLogging = true;
         this.isConfigured = false;
         this.sessionId = this.generateSessionId();
@@ -35,13 +36,19 @@ class GroqChatbot {
         window.addEventListener('beforeunload', () => {
             if (this.currentSession.length > 0) {
                 // Use navigator.sendBeacon for reliable data sending on page unload
+                // Add timestamps back to messages for logging
+                const messagesWithTimestamps = this.currentSession.map((msg, index) => ({
+                    ...msg,
+                    timestamp: this.messageTimestamps[index] || this.sessionStartTime
+                }));
+
                 const sessionData = {
                     id: this.sessionId,
                     chatbotId: this.chatbotId,
                     chatbotName: `Chatbot ${this.chatbotId}`,
                     title: this.getSessionTitle(),
                     timestamp: this.sessionStartTime,
-                    messages: this.currentSession
+                    messages: messagesWithTimestamps
                 };
 
                 const blob = new Blob([JSON.stringify(sessionData)], { type: 'application/json' });
@@ -188,6 +195,7 @@ class GroqChatbot {
 
         // Add to current session
         this.currentSession.push({ role, content });
+        this.messageTimestamps.push(new Date().toISOString());
         
         // Save session after each message exchange if logging is enabled
         if (this.enableLogging && role === 'assistant') {
@@ -228,13 +236,19 @@ class GroqChatbot {
         if (!this.enableLogging || this.currentSession.length === 0) return;
 
         try {
+            // Add timestamps back to messages for logging
+            const messagesWithTimestamps = this.currentSession.map((msg, index) => ({
+                ...msg,
+                timestamp: this.messageTimestamps[index] || this.sessionStartTime
+            }));
+
             const sessionData = {
                 id: this.sessionId,
                 chatbotId: this.chatbotId,
                 chatbotName: `Chatbot ${this.chatbotId}`,
                 title: this.getSessionTitle(),
                 timestamp: this.sessionStartTime,
-                messages: this.currentSession
+                messages: messagesWithTimestamps
             };
 
             const response = await fetch('/api/logs?action=save', {
@@ -269,6 +283,7 @@ class GroqChatbot {
         
         // Clear current session and generate new session ID
         this.currentSession = [];
+        this.messageTimestamps = [];
         this.sessionId = this.generateSessionId();
         this.sessionStartTime = new Date().toISOString();
         
